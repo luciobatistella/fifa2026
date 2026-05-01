@@ -1,8 +1,59 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronRight } from 'lucide-react';
-import Celula from './Celula.jsx';
+import Sparkles from './effects/Sparkles.jsx';
+import { sfx, sfxState } from '../lib/sfx.js';
 import { CATEGORIAS_EXTRAS } from '../data/especiais.js';
+
+function CardExtra({ cat, qtd, onInc, onDec }) {
+  const timer = useRef(null);
+  const [burst, setBurst] = useState(0);
+
+  const inc = () => { sfxState.unlock(); qtd === 0 ? sfx.pop() : sfx.cling(); setBurst((b) => b + 1); onInc(); };
+  const dec = () => { sfxState.unlock(); sfx.blop(); onDec(); };
+
+  const handleDown = () => { timer.current = setTimeout(() => { dec(); timer.current = null; }, 500); };
+  const handleUp   = () => { if (timer.current) { clearTimeout(timer.current); timer.current = null; inc(); } };
+  const handleLeave = () => { if (timer.current) { clearTimeout(timer.current); timer.current = null; } };
+
+  const tem = qtd > 0;
+  const corBadge = qtd > 1 ? 'bg-amber-400 text-stone-950 ring-amber-300'
+                   : tem    ? 'bg-emerald-500 text-stone-950 ring-emerald-400'
+                            : 'bg-stone-800/80 text-stone-500 ring-stone-700';
+
+  return (
+    <motion.button
+      type="button"
+      whileHover={{ scale: 1.03 }}
+      whileTap={{ scale: 0.97 }}
+      transition={{ type: 'spring', stiffness: 500, damping: 22 }}
+      onMouseDown={handleDown} onMouseUp={handleUp} onMouseLeave={handleLeave}
+      onTouchStart={handleDown} onTouchEnd={handleUp}
+      onContextMenu={(e) => { e.preventDefault(); dec(); }}
+      title={`Extra ${cat.nome} · ${cat.prefix} 1`}
+      className={`relative rounded-xl ring-1 bg-gradient-to-br ${cat.cor} p-3 flex flex-col items-center gap-2 text-left select-none`}
+    >
+      <div className="text-[10px] font-bold tracking-[0.2em] text-stone-300">
+        {cat.nome.toUpperCase()}
+      </div>
+      <div className={`relative aspect-square w-full max-w-[72px] rounded-md flex items-center justify-center font-bold ring-1 ${corBadge} text-3xl leading-none`}>
+        <span className="drop-shadow-[0_2px_3px_rgba(0,0,0,0.5)]">{cat.emoji}</span>
+        <span className="absolute bottom-0 right-0.5 text-[8px] font-mono text-stone-950/80">1</span>
+        {qtd > 1 && (
+          <span className="absolute -top-1 -right-1 text-[8px] bg-stone-950 text-amber-400 rounded-full px-1 ring-1 ring-amber-400">
+            ×{qtd}
+          </span>
+        )}
+        <AnimatePresence>
+          {burst > 0 && <Sparkles key={burst} count={8} radius={22} size={3} />}
+        </AnimatePresence>
+      </div>
+      <div className={`text-[10px] font-mono ${cat.badgeCor}`}>
+        {cat.prefix}-1
+      </div>
+    </motion.button>
+  );
+}
 
 export default function SecaoExtras({ colecao, prog, onInc, onDec, filtro = 'todas' }) {
   const [aberto, setAberto] = useState(true);
@@ -61,25 +112,13 @@ export default function SecaoExtras({ colecao, prog, onInc, onDec, filtro = 'tod
                     const id = `${cat.prefix}-1`;
                     const qtd = colecao[id] || 0;
                     return (
-                      <div
+                      <CardExtra
                         key={cat.id}
-                        className={`rounded-xl ring-1 bg-gradient-to-br ${cat.cor} p-3 flex flex-col items-center gap-2`}
-                      >
-                        <div className="text-[10px] font-bold tracking-[0.2em] text-stone-300">
-                          {cat.nome.toUpperCase()}
-                        </div>
-                        <Celula
-                          numero={1}
-                          emoji={cat.emoji}
-                          titulo={`Extra ${cat.nome} · ${cat.prefix} 1`}
-                          qtd={qtd}
-                          onInc={() => onInc(id)}
-                          onDec={() => onDec(id)}
-                        />
-                        <div className={`text-[10px] font-mono ${cat.badgeCor}`}>
-                          {cat.prefix}-1
-                        </div>
-                      </div>
+                        cat={cat}
+                        qtd={qtd}
+                        onInc={() => onInc(id)}
+                        onDec={() => onDec(id)}
+                      />
                     );
                   })}
                 </div>

@@ -1,6 +1,7 @@
 /* eslint-disable */
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 import './src/styles/globals.css';
 
@@ -62,9 +63,41 @@ export default function App() {
   } = useColecao(user?.id);
   const { toasts, push } = useToasts();
 
-  const [aba, setAba]                     = useState('dashboard');
+  // ---- Navegação por URL (browser back/forward) ----
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Mapa aba <-> path
+  const ABA_TO_PATH = {
+    dashboard: '/',
+    selecoes:  '/album',
+    buscar:    '/buscar',
+    repetidas: '/trocas',
+    amigos:    '/amigos',
+    stats:     '/stats',
+  };
+  const PATH_TO_ABA = {
+    '':         'dashboard',
+    '/':        'dashboard',
+    '/album':   'selecoes',
+    '/buscar':  'buscar',
+    '/trocas':  'repetidas',
+    '/amigos':  'amigos',
+    '/stats':   'stats',
+  };
+
+  // Deriva aba e código da seleção da URL
+  const pathname = location.pathname.replace(/\/+$/, '') || '/';
+  const albumMatch = pathname.match(/^\/album\/([A-Za-z0-9_-]+)$/);
+  const aba = albumMatch ? 'selecoes' : (PATH_TO_ABA[pathname] || 'dashboard');
+  const codigoUrl = albumMatch ? albumMatch[1].toUpperCase() : null;
+
+  const setAba = useCallback((a) => {
+    const dest = ABA_TO_PATH[a] || '/';
+    if (location.pathname !== dest) navigate(dest);
+  }, [navigate, location.pathname]);
+
   const [busca, setBusca]                 = useState('');
-  const [selecaoAberta, setSelecaoAberta] = useState(null);
   const [filtroSel, setFiltroSel]         = useState('todas');
   const [filtroAlbum, setFiltroAlbum]     = useState('todas'); // todas | completas | incompletas | comRepetidas
 
@@ -232,7 +265,7 @@ export default function App() {
     '4': () => setAba('repetidas'),
     '5': () => setAba('amigos'),
     '6': () => setAba('stats'),
-  }), []);
+  }), [setAba]);
   useAtalhos(atalhos);
 
   if (carregando || (SUPABASE_ENABLED && authLoading)) {
@@ -258,6 +291,20 @@ export default function App() {
     );
   }
 
+  // Resolve seleção aberta a partir do código na URL (sem hooks — após early returns)
+  const selecaoAberta = codigoUrl
+    ? (progressoSelecoes.find((s) => s.codigo === codigoUrl) || null)
+    : null;
+
+  const abrirSelecao = (s) => {
+    if (!s?.codigo) return;
+    navigate('/album/' + s.codigo);
+  };
+
+  const fecharSelecao = () => {
+    navigate('/album');
+  };
+
   const conteudo = () => {
     if (aba === 'dashboard') return (
       <Dashboard
@@ -265,7 +312,7 @@ export default function App() {
         progresso={progressoSelecoes}
         especiais={especiais}
         repetidas={repetidasLista}
-        onAbrirSelecao={(s) => { setAba('selecoes'); setSelecaoAberta(s); }}
+        onAbrirSelecao={(s) => abrirSelecao(s)}
         onAbrirPacote={() => setMPacote(true)}
         onQuickAdd={() => setMQuick(true)}
       />
@@ -274,7 +321,7 @@ export default function App() {
       <div className="space-y-6">
         <ListaSelecoes
           progresso={progressoSelecoes}
-          onAbrir={(s) => { sfx.tick(); setSelecaoAberta(s); }}
+          onAbrir={(s) => { sfx.tick(); abrirSelecao(s); }}
           filtro={filtroAlbum}
           setFiltro={setFiltroAlbum}
         />
@@ -291,7 +338,7 @@ export default function App() {
         setFiltro={setFiltroSel}
         onInc={handleInc}
         onDec={handleDec}
-        onVoltar={() => { sfx.close(); setSelecaoAberta(null); }}
+        onVoltar={() => { sfx.close(); fecharSelecao(); }}
       />
     );
     if (aba === 'buscar') return (
@@ -338,7 +385,7 @@ export default function App() {
         modoColagem={meta.modoColagem || 'completo'}
         onChangeModo={handleChangeModo}
       />
-      <Tabs aba={aba} setAba={(a) => { setAba(a); setSelecaoAberta(null); }} />
+      <Tabs aba={aba} setAba={(a) => { setAba(a); }} />
 
       {meta.modoColagem === 'repetidas' && (
         <div className="max-w-5xl mx-auto px-4 mt-3">

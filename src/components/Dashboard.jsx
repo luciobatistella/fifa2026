@@ -132,10 +132,17 @@ export default function Dashboard({
               <button
                 key={s.codigo}
                 onClick={() => onAbrirSelecao(s)}
-                className={`aspect-square rounded-md ${cor} hover:scale-110 hover:ring-2 hover:ring-amber-400/50 transition-all flex items-center justify-center p-1`}
-                title={`${s.nome} · ${s.tem}/${s.total}`}
+                className={`relative aspect-square rounded-md ${cor} hover:scale-110 hover:ring-2 hover:ring-amber-400/50 transition-all flex flex-col items-center justify-center gap-0.5 p-1`}
+                title={`${s.codigo} · ${s.nome} · ${s.tem}/${s.total}`}
               >
-                <Bandeira emoji={s.bandeira} size={28} className="drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]" />
+                <Bandeira emoji={s.bandeira} size={22} className="drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]" />
+                <span className={`text-[11px] font-black font-mono leading-none tracking-wider ${
+                  s.perc === 0
+                    ? 'text-stone-300 drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]'
+                    : 'text-stone-950 drop-shadow-[0_1px_1px_rgba(255,255,255,0.4)]'
+                }`}>
+                  {s.codigo}
+                </span>
               </button>
             );
           })}

@@ -39,6 +39,24 @@ export const CATEGORIAS_ESPECIAIS = [
 //  Catálogo das 14 figurinhas Coca-Cola (CC-1 .. CC-14).
 // =============================================================================
 
+// Jogadores oficiais da página Coca-Cola (CC-1 .. CC-14).
+const CC_JOGADORES = [
+  { sigla: 'ESP', nome: 'Lamine Yamal' },
+  { sigla: 'ALE', nome: 'Joshua Kimmich' },
+  { sigla: 'ING', nome: 'Harry Kane' },
+  { sigla: 'MEX', nome: 'Santiago Giménez' },
+  { sigla: 'CRO', nome: 'Joško Gvardiol' },
+  { sigla: 'URU', nome: 'Federico Valverde' },
+  { sigla: 'COL', nome: 'Jefferson Lerma' },
+  { sigla: 'EQU', nome: 'Enner Valencia' },
+  { sigla: 'BRA', nome: 'Gabriel Magalhães' },
+  { sigla: 'HOL', nome: 'Virgil van Dijk' },
+  { sigla: 'CAN', nome: 'Alphonso Davies' },
+  { sigla: 'ARG', nome: 'Emiliano Martínez' },
+  { sigla: 'MEX', nome: 'Raúl Jiménez' },
+  { sigla: 'ARG', nome: 'Lautaro Martínez' },
+];
+
 export const CATEGORIAS_CC = [
   {
     id: 'cocacola',
@@ -47,7 +65,8 @@ export const CATEGORIAS_CC = [
     cor: 'from-red-600/20 to-rose-800/10 ring-red-500/40',
     range: [0, 13],  // CC-1 .. CC-14
     icones: Array(14).fill('🥤'),
-    nomes: Array.from({ length: 14 }, (_, i) => `Coca-Cola #${i + 1}`),
+    nomes: CC_JOGADORES.map((j) => j.nome),
+    siglas: CC_JOGADORES.map((j) => j.sigla),
   },
 ];
 
@@ -124,9 +143,10 @@ export function infoCocaCola(idx) {
         categoria: cat,
         emoji: cat.icones?.[local] || cat.emoji,
         nome: cat.nomes?.[local] || `Coca-Cola #${local + 1}`,
+        sigla: cat.siglas?.[local] || '',
         numeroLocal: local + 1,
       };
     }
   }
-  return { categoria: null, emoji: '🥤', nome: `CC #${idx + 1}`, numeroLocal: idx + 1 };
+  return { categoria: null, emoji: '🥤', nome: `CC #${idx + 1}`, sigla: '', numeroLocal: idx + 1 };
 }

@@ -37,7 +37,10 @@ function CardSelecao({ s, onAbrir }) {
           </span>
         )}
       </div>
-      <div className="text-[11px] sm:text-sm font-bold leading-tight mb-1.5 sm:mb-2 truncate">{s.nome}</div>
+      <div className="flex items-center gap-1.5 mb-1.5 sm:mb-2 min-w-0">
+        <span className="text-[11px] sm:text-sm font-bold leading-tight truncate">{s.nome}</span>
+        <span className="text-[9px] sm:text-[10px] font-black font-mono text-amber-400 tracking-wider shrink-0 px-1 py-0.5 rounded bg-amber-400/10 ring-1 ring-amber-400/30">{s.codigo}</span>
+      </div>
       <div className="flex items-center gap-1.5 sm:gap-2">
         <div className="flex-1 h-1 sm:h-1.5 bg-stone-950 rounded-full overflow-hidden">
           <div
