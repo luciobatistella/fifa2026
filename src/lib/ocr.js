@@ -33,11 +33,16 @@ export function getOCRWorker() {
   return workerPromise;
 }
 
-export async function recognize(canvasOrBlob) {
+export async function recognize(canvasOrBlob, psm) {
   const w = await getOCRWorker();
+  if (psm != null) {
+    await w.setParameters({ tessedit_pageseg_mode: psm });
+  }
   const { data } = await w.recognize(canvasOrBlob);
   return data?.text || '';
 }
+
+export { PSM };
 
 export function isOCRReady() { return initialized; }
 

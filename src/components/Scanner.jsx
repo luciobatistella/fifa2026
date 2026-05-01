@@ -1,13 +1,13 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Camera, Zap, ZapOff, Loader2, Check, Sparkles, Bug } from 'lucide-react';
-import { recognize, getOCRWorker, disposeOCR, VALID_PREFIXES } from '../lib/ocr.js';
+import { recognize, getOCRWorker, disposeOCR, VALID_PREFIXES, PSM } from '../lib/ocr.js';
 import { normalizeId } from '../data/album.js';
 import { rotuloFigurinha } from '../lib/figurinhas.js';
 import { sfx, sfxState } from '../lib/sfx.js';
 
-/* Padrão estrito da pílula: 3 letras + 1-2 dígitos (com ou sem espaço/hífen). */
-const CODE_REGEX = /([A-Z0-9]{3})\s*[- ]?\s*(\d{1,2})/g;
+/* Padrão da pílula: 2-4 chars + 1-2 dígitos. Validamos prefixo depois. */
+const CODE_REGEX = /([A-Z0-9]{2,4})\s*[- ]?\s*(\d{1,2})/g;
 
 /* Conserta confusões OCR no prefixo (alfanumérico parece número). */
 function fixPrefix(s) {
@@ -55,14 +55,14 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
   const [torchOk, setTorchOk]   = useState(false);
   const [historico, setHistorico] = useState([]);
   const [showDebug, setShowDebug] = useState(false);
-  const [debug, setDebug] = useState({ frames: 0, lastText: '', matches: [], lastFrameMs: 0 });
+  const [debug, setDebug] = useState({ frames: 0, lastText: '', matches: [], lastFrameMs: 0, preview: null });
 
   const COOLDOWN_MS = 1500;
-  const FRAME_MS    = 280;
+  const FRAME_MS    = 320;
 
   /* Região do crop relativa ao vídeo (em fração 0..1).
      A mira na UI é desenhada exatamente sobre essa área. */
-  const CROP = { xc: 0.5, yc: 0.5, w: 0.55, h: 0.13 };
+  const CROP = { xc: 0.5, yc: 0.5, w: 0.7, h: 0.18 };
 
   const iniciarCamera = useCallback(async () => {
     setErro('');
@@ -158,8 +158,8 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
     const sx = Math.floor(vw * CROP.xc - cw / 2);
     const sy = Math.floor(vh * CROP.yc - ch / 2);
 
-    // Alvo: ~64px de altura para o texto — boa zona pra Tesseract.
-    const targetH = 96;
+    // Alvo: ~120px de altura — letras grandes ajudam o Tesseract.
+    const targetH = 140;
     const scale   = Math.max(1, targetH / ch);
     const dw = Math.floor(cw * scale);
     const dh = Math.floor(ch * scale);
@@ -208,16 +208,24 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
     }
     ctx.putImageData(img, 0, 0);
 
-    let text = '';
-    try {
-      text = await recognize(c);
-    } catch (e) {
-      console.warn('[scanner] ocr err', e);
-      return;
-    }
+    // Snapshot da imagem processada para o overlay de debug.
+    let preview = null;
+    try { preview = c.toDataURL('image/png'); } catch (_) {}
 
-    const dbgInfo = {};
-    const ids = extractIds(text, dbgInfo);
+    // Tenta dois modos de segmentação: linha única e texto esparso.
+    // O 1º que produzir um id válido vence; senão concatenamos os textos.
+    let text = '';
+    let ids = [];
+    const dbgInfo = { matches: [] };
+    for (const psm of [PSM.SINGLE_LINE, PSM.SPARSE_TEXT]) {
+      let t;
+      try { t = await recognize(c, psm); } catch (e) {
+        console.warn('[scanner] ocr err', e); continue;
+      }
+      text = (text + ' ' + (t || '')).trim();
+      const found = extractIds(t || '', dbgInfo);
+      if (found.length) { ids = found; break; }
+    }
     const elapsed = performance.now() - t0;
 
     setDebug((d2) => ({
@@ -225,6 +233,7 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
       lastText: (text || '').trim().replace(/\n+/g, ' ').slice(0, 80),
       matches: dbgInfo.matches || [],
       lastFrameMs: Math.round(elapsed),
+      preview,
     }));
 
     if (ids.length === 0) return;
@@ -266,7 +275,7 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
     if (!aberto) return;
     sfxState.unlock();
     setHistorico([]);
-    setDebug({ frames: 0, lastText: '', matches: [], lastFrameMs: 0 });
+    setDebug({ frames: 0, lastText: '', matches: [], lastFrameMs: 0, preview: null });
     lastIdsRef.current.clear();
     iniciarCamera();
     return () => { pararCamera(); };
@@ -299,31 +308,31 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
           />
           <canvas ref={canvasRef} className="hidden" />
 
-          {/* Mira: formato de "pílula" alinhada com o código no verso da figurinha */}
+          {/* Mira: retângulo alinhado com o crop. Encaixe a etiqueta XXX 9 dentro. */}
           <div className="absolute inset-0 pointer-events-none">
             <div className="absolute inset-0 bg-black/55" />
             <div
-              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-amber-400 shadow-[0_0_0_9999px_rgba(0,0,0,0.55)]"
-              style={{ width: `${CROP.w * 100}vw`, maxWidth: 360, aspectRatio: `${CROP.w / CROP.h} / 1` }}
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-2xl ring-2 ring-amber-400 shadow-[0_0_0_9999px_rgba(0,0,0,0.55)]"
+              style={{ width: `${CROP.w * 100}vw`, maxWidth: 460, aspectRatio: `${CROP.w / CROP.h} / 1` }}
             >
               {['tl', 'tr', 'bl', 'br'].map((c) => (
                 <div
                   key={c}
-                  className={`absolute w-4 h-4 border-amber-400 ${
-                    c === 'tl' ? '-top-1 -left-1 border-t-4 border-l-4 rounded-tl-full' :
-                    c === 'tr' ? '-top-1 -right-1 border-t-4 border-r-4 rounded-tr-full' :
-                    c === 'bl' ? '-bottom-1 -left-1 border-b-4 border-l-4 rounded-bl-full' :
-                                 '-bottom-1 -right-1 border-b-4 border-r-4 rounded-br-full'
+                  className={`absolute w-5 h-5 border-amber-400 ${
+                    c === 'tl' ? '-top-1 -left-1 border-t-4 border-l-4 rounded-tl-2xl' :
+                    c === 'tr' ? '-top-1 -right-1 border-t-4 border-r-4 rounded-tr-2xl' :
+                    c === 'bl' ? '-bottom-1 -left-1 border-b-4 border-l-4 rounded-bl-2xl' :
+                                 '-bottom-1 -right-1 border-b-4 border-r-4 rounded-br-2xl'
                   }`}
                 />
               ))}
               <motion.div
                 className="absolute left-3 right-3 h-[2px] bg-amber-400 shadow-[0_0_12px_2px_rgba(251,191,36,0.9)]"
-                animate={{ top: ['12%', '88%', '12%'] }}
-                transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+                animate={{ top: ['10%', '90%', '10%'] }}
+                transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
               />
               <div className="absolute -top-7 left-1/2 -translate-x-1/2 text-[10px] uppercase tracking-[0.25em] text-amber-300 font-bold whitespace-nowrap">
-                código aqui
+                código aqui (XXX 9)
               </div>
             </div>
           </div>
@@ -378,6 +387,16 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
                   <span>OCR DEBUG</span>
                   <span>{debug.lastFrameMs}ms · {debug.frames} frames</span>
                 </div>
+                {debug.preview && (
+                  <div className="flex justify-center bg-black/40 rounded p-1">
+                    <img
+                      src={debug.preview}
+                      alt="OCR input"
+                      className="max-h-16 w-auto rounded ring-1 ring-sky-500/30"
+                      style={{ imageRendering: 'pixelated' }}
+                    />
+                  </div>
+                )}
                 <div className="text-stone-200 break-words">
                   <span className="text-sky-400">lendo:</span>{' '}
                   {debug.lastText || <em className="text-stone-500">(nada)</em>}
