@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Layers, Trophy, Search, Repeat2, BarChart3 } from 'lucide-react';
+import { Layers, Trophy, Search, Repeat2, BarChart3, Users } from 'lucide-react';
 import { sfx, sfxState } from '../lib/sfx.js';
 
 const TABS = [
@@ -8,6 +8,7 @@ const TABS = [
   { id: 'selecoes',  label: 'Álbum',     icon: Trophy },
   { id: 'buscar',    label: 'Buscar',    icon: Search },
   { id: 'repetidas', label: 'Trocas',    icon: Repeat2 },
+  { id: 'amigos',    label: 'Amigos',    icon: Users },
   { id: 'stats',     label: 'Stats',     icon: BarChart3 },
 ];
 

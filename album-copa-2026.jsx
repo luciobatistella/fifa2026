@@ -23,6 +23,7 @@ import SecaoCocaCola from './src/components/SecaoCocaCola.jsx';
 import DetalhesSelecao from './src/components/DetalhesSelecao.jsx';
 import Busca         from './src/components/Busca.jsx';
 import Trocas        from './src/components/Trocas.jsx';
+import Amigos        from './src/components/Amigos.jsx';
 import Estatisticas  from './src/components/Estatisticas.jsx';
 
 import ModalPacote   from './src/components/modals/ModalPacote.jsx';
@@ -216,7 +217,8 @@ export default function App() {
     '2': () => setAba('selecoes'),
     '3': () => setAba('buscar'),
     '4': () => setAba('repetidas'),
-    '5': () => setAba('stats'),
+    '5': () => setAba('amigos'),
+    '6': () => setAba('stats'),
   }), []);
   useAtalhos(atalhos);
 
@@ -278,6 +280,14 @@ export default function App() {
     );
     if (aba === 'repetidas') return (
       <Trocas repetidas={repetidasLista} onInc={handleInc} onDec={handleDec} pushToast={push} />
+    );
+    if (aba === 'amigos') return (
+      <Amigos
+        userId={user?.id}
+        meuUsername={user?.user_metadata?.username || null}
+        minhaColecao={colecao}
+        pushToast={push}
+      />
     );
     if (aba === 'stats') return (
       <Estatisticas
