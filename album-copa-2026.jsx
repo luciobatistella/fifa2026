@@ -52,8 +52,9 @@ function parseCodigos(texto) {
 export default function App() {
   const { user, loading: authLoading } = useAuth();
   const {
-    colecao, meta, carregando,
+    colecao, meta, carregando, syncStatus,
     setMeta, inc, dec, adicionarMuitos, resetar, substituirColecao,
+    sincronizarAgora,
     stats, repetidasLista, progressoSelecoes, especiais, cocaCola,
   } = useColecao(user?.id);
   const { toasts, push } = useToasts();
@@ -302,7 +303,8 @@ export default function App() {
         onScan={() => setMScan(true)}
         onLogin={() => setMLogin(true)}
         colecao={colecao}
-        onSubstituirColecao={(nova) => { substituirColecao(nova); initRef.current = false; }}
+        syncStatus={syncStatus}
+        onSincronizar={sincronizarAgora}
         pushToast={push}
       />
       <Tabs aba={aba} setAba={(a) => { setAba(a); setSelecaoAberta(null); }} />

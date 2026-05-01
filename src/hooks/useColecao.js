@@ -1,10 +1,12 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { storage } from '../lib/storage.js';
 import {
   SELECOES, FIGURINHAS_POR_SELECAO, TOTAL_FIGURINHAS, FIGURINHAS_POR_PACOTE, STORAGE_KEY,
 } from '../data/selecoes.js';
 import { progressoSelecao, progressoEspeciais, progressoCocaCola, rotuloFigurinha } from '../lib/figurinhas.js';
 import { parseId } from '../data/album.js';
+import { pullCollection, pushCollection } from '../lib/sync.js';
+import { SUPABASE_ENABLED } from '../lib/supabase.js';
 
 export function useColecao(userId) {
   const storageKey = userId ? `${STORAGE_KEY}:${userId}` : STORAGE_KEY;
@@ -12,12 +14,21 @@ export function useColecao(userId) {
   const [colecao, setColecao]       = useState({});
   const [meta, setMeta]             = useState({ precoPacote: 5, criadoEm: null });
   const [carregando, setCarregando] = useState(true);
+  // 'idle' | 'syncing' | 'error' | 'offline'
+  const [syncStatus, setSyncStatus] = useState(SUPABASE_ENABLED && userId ? 'syncing' : 'idle');
+
+  const colecaoRef        = useRef(colecao);
+  const initialSyncDoneRef = useRef(false);
+  const pushTimerRef      = useRef(null);
+  useEffect(() => { colecaoRef.current = colecao; }, [colecao]);
 
   // Load — recarrega sempre que o usuário muda
   useEffect(() => {
     setColecao({});
     setMeta({ precoPacote: 5, criadoEm: null });
     setCarregando(true);
+    initialSyncDoneRef.current = false;
+    setSyncStatus(SUPABASE_ENABLED && userId ? 'syncing' : 'idle');
     (async () => {
       const raw = await storage.get(storageKey);
       if (raw) {
@@ -31,13 +42,78 @@ export function useColecao(userId) {
       }
       setCarregando(false);
     })();
-  }, [storageKey]);
+  }, [storageKey, userId]);
 
-  // Save
+  // Save local
   useEffect(() => {
     if (carregando) return;
     storage.set(storageKey, JSON.stringify({ colecao, meta, savedAt: new Date().toISOString() }));
   }, [colecao, meta, carregando, storageKey]);
+
+  // Sync inicial: pull remoto + merge (max) ao logar
+  useEffect(() => {
+    if (carregando) return;
+    if (!SUPABASE_ENABLED || !userId) {
+      initialSyncDoneRef.current = true;
+      setSyncStatus('idle');
+      return;
+    }
+    if (initialSyncDoneRef.current) return;
+    let cancelled = false;
+    setSyncStatus('syncing');
+    (async () => {
+      try {
+        const remote = await pullCollection(userId);
+        if (cancelled) return;
+        const local = colecaoRef.current || {};
+        const merged = { ...(remote || {}) };
+        for (const [id, q] of Object.entries(local)) {
+          merged[id] = Math.max(merged[id] || 0, q);
+        }
+        const localStr  = JSON.stringify(local);
+        const mergedStr = JSON.stringify(merged);
+        const remoteStr = JSON.stringify(remote || {});
+        if (mergedStr !== localStr) setColecao(merged);
+        if (mergedStr !== remoteStr) await pushCollection(userId, merged);
+        if (cancelled) return;
+        initialSyncDoneRef.current = true;
+        setSyncStatus('idle');
+      } catch (_) {
+        if (!cancelled) setSyncStatus('error');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [carregando, userId]);
+
+  // Push automático (debounce) quando a coleção muda
+  useEffect(() => {
+    if (!SUPABASE_ENABLED || !userId) return;
+    if (carregando) return;
+    if (!initialSyncDoneRef.current) return;
+    if (pushTimerRef.current) clearTimeout(pushTimerRef.current);
+    setSyncStatus('syncing');
+    pushTimerRef.current = setTimeout(async () => {
+      try {
+        await pushCollection(userId, colecaoRef.current);
+        setSyncStatus('idle');
+      } catch (_) {
+        setSyncStatus('error');
+      }
+    }, 1500);
+    return () => { if (pushTimerRef.current) clearTimeout(pushTimerRef.current); };
+  }, [colecao, userId, carregando]);
+
+  // Retry manual de sincronização
+  const sincronizarAgora = useCallback(async () => {
+    if (!SUPABASE_ENABLED || !userId) return;
+    setSyncStatus('syncing');
+    try {
+      await pushCollection(userId, colecaoRef.current);
+      setSyncStatus('idle');
+    } catch (_) {
+      setSyncStatus('error');
+    }
+  }, [userId]);
 
   // Mutations
   const setQtd = useCallback((id, qtd) => {
@@ -98,11 +174,12 @@ export function useColecao(userId) {
 
   return {
     // state
-    colecao, meta, carregando,
+    colecao, meta, carregando, syncStatus,
     // setters
     setMeta,
     // mutations
     setQtd, inc, dec, adicionarMuitos, resetar, substituirColecao,
+    sincronizarAgora,
     // derived
     stats, repetidasLista, progressoSelecoes, especiais, cocaCola,
   };

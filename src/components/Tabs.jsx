@@ -36,7 +36,7 @@ export default function Tabs({ aba, setAba }) {
               {ativo && (
                 <motion.div
                   layoutId="tab-underline"
-                  className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-[3px] rounded-t-full"
+                  className="absolute bottom-0 inset-x-0 mx-auto w-12 h-[3px] rounded-t-full"
                   style={{
                     background: 'linear-gradient(90deg,#f59e0b,#fbbf24,#10b981)',
                     boxShadow: '0 -2px 14px rgba(245,158,11,0.7)',

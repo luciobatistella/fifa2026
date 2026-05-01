@@ -32,26 +32,31 @@ export default function FigurinhaSticker({ numero, rotulo, kind, selecao, qtd, o
     onDec();
   };
 
+  const ringClass = repetida
+    ? 'ring-amber-400 shadow-lg shadow-amber-900/40'
+    : tem
+      ? 'ring-emerald-500 shadow-lg shadow-emerald-900/40'
+      : 'ring-red-900/60 opacity-60';
+
+  const bgClass = repetida
+    ? 'bg-gradient-to-b from-amber-950/60 to-stone-950'
+    : tem
+      ? 'bg-gradient-to-b from-emerald-950/60 to-stone-950'
+      : 'bg-stone-950';
+
+  const numColor = repetida ? 'text-amber-300' : tem ? 'text-emerald-200' : 'text-white';
+  const nomeColor = repetida ? 'text-amber-200' : tem ? 'text-emerald-100' : 'text-white/90';
+  const extras = qtd > 1 ? qtd - 1 : 0;
+
   return (
     <motion.div
       layout
       whileHover={{ scale: 1.05, y: -3, zIndex: 10 }}
       transition={{ type: 'spring', stiffness: 420, damping: 22 }}
-      className={`relative w-full aspect-[2/3] rounded-xl flex flex-col overflow-hidden ring-2 transition-colors select-none
-        ${tem
-          ? 'ring-emerald-500 shadow-lg shadow-emerald-900/40'
-          : 'ring-red-900/60 opacity-60'
-        }
-      `}
+      className={`relative w-full aspect-[2/3] rounded-xl flex flex-col overflow-hidden ring-2 transition-colors select-none ${ringClass}`}
     >
       {/* Fundo */}
-      <div
-        className={`absolute inset-0 transition-colors ${
-          tem
-            ? 'bg-gradient-to-b from-emerald-950/60 to-stone-950'
-            : 'bg-stone-950'
-        }`}
-      />
+      <div className={`absolute inset-0 transition-colors ${bgClass}`} />
 
       {/* PNG de fundo para figurinhas faltando */}
       {!tem && (
@@ -66,61 +71,46 @@ export default function FigurinhaSticker({ numero, rotulo, kind, selecao, qtd, o
         />
       )}
 
-      {/* Faixa topo — número (só quando tem) + badge repetidas */}
-      <div className="relative z-10 flex items-center justify-between px-1.5 pt-1.5 pb-1">
-        {tem && (
-          <span className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-black shrink-0 bg-emerald-400 text-stone-950">
-            {numero}
-          </span>
-        )}
+      {/* Bandeira marca d'água (quando coletada) */}
+      {tem && selecao?.bandeira && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10">
+          <Bandeira emoji={selecao.bandeira} size={120} />
+        </div>
+      )}
 
-        {repetida && (
-          <span className="ml-auto bg-amber-400 text-stone-950 rounded-full px-1 text-[7px] font-black leading-4">
-            ×{qtd}
+      {/* Faixa topo — bandeirinha + badge repetidas */}
+      <div className="relative z-10 flex items-start justify-between px-1.5 pt-1.5 pb-1 min-h-[20px]">
+        {tem && selecao?.bandeira ? (
+          <Bandeira emoji={selecao.bandeira} size={16} className="rounded-sm shrink-0 opacity-90" />
+        ) : <span />}
+
+        {extras > 0 && (
+          <span className="ml-auto bg-amber-400 text-stone-950 rounded-full px-1.5 py-0.5 text-[8px] font-black leading-none shadow-md">
+            +{extras} REP
           </span>
         )}
       </div>
 
-      {/* Área central */}
+      {/* Área central — número e nome SEMPRE grandes */}
       <motion.button
         whileTap={{ scale: 0.9 }}
         onClick={handleInc}
-        className="relative flex-1 flex flex-col items-center justify-center z-10 w-full gap-1 px-1"
+        className="relative flex-1 flex flex-col items-center justify-center z-10 w-full gap-2 px-1"
       >
-        {tem ? (
-          <div>
-            {kind === 'badge' ? (
-              <Bandeira emoji={selecao.bandeira} size={52} className="drop-shadow-[0_4px_12px_rgba(0,0,0,0.7)]" />
-            ) : kind === 'extra' ? (
-              <div className="flex flex-col items-center gap-0.5">
-                <Bandeira emoji={selecao.bandeira} size={40} />
-                <span className="text-[7px] text-stone-400 font-bold tracking-wide">EQUIPE</span>
-              </div>
-            ) : (
-              <Bandeira emoji={selecao.bandeira} size={38} className="drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]" />
-            )}
-          </div>
-        ) : (
-          /* Figurinha faltando: número grande + nome em preto */
-          <div className="flex flex-col items-center gap-8 px-1">
-            <span className="text-5xl font-black text-white leading-none drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)]">{numero}</span>
-            <span className="text-xs font-bold text-white/90 text-center leading-tight line-clamp-2 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">{rotulo}</span>
-          </div>
-        )}
+        <span className={`text-5xl font-black leading-none drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)] ${numColor}`}>
+          {numero}
+        </span>
+        <span className={`text-xs font-bold text-center leading-tight line-clamp-2 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)] px-1 ${nomeColor}`}>
+          {rotulo}
+        </span>
 
         <AnimatePresence>
           {burst > 0 && <Sparkles key={burst} count={10} radius={28} size={3} />}
         </AnimatePresence>
       </motion.button>
 
-      {/* Rodapé — nome (só quando tem) + botões + / − */}
+      {/* Rodapé — botões + / − */}
       <div className="relative z-10 px-1 pb-1.5 flex flex-col items-center gap-1">
-        {tem && (
-          <div className="text-[8px] font-bold leading-tight line-clamp-1 text-center w-full text-emerald-300">
-            {rotulo}
-          </div>
-        )}
-
         <div className="flex items-center gap-0.5 w-full justify-center">
           <button
             onClick={handleDec}
@@ -135,7 +125,7 @@ export default function FigurinhaSticker({ numero, rotulo, kind, selecao, qtd, o
             initial={{ y: -6, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             className={`w-5 text-center text-[10px] font-black tabular-nums ${
-              tem ? 'text-emerald-400' : 'text-stone-600'
+              repetida ? 'text-amber-400' : tem ? 'text-emerald-400' : 'text-stone-600'
             }`}
           >
             {qtd}

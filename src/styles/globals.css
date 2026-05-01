@@ -16,7 +16,9 @@
 }
 
 html, body, #root { background: #050505; }
+html { touch-action: manipulation; -ms-content-zooming: none; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 body {
+  touch-action: manipulation;
   font-family: 'Inter', system-ui, sans-serif;
   background:
     radial-gradient(1200px 600px at 20% -10%, rgba(245,158,11,0.10), transparent 60%),

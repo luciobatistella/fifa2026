@@ -74,7 +74,7 @@ export default function TelaLogin() {
             </span>
           </div>
           <h1 className="font-display text-5xl leading-[0.85] text-stone-100">
-            MEU <span className="text-holo">ÁLBUM</span>
+            ÁLBUM <span className="text-holo">FIFA</span>
           </h1>
           <p className="text-xs text-stone-400 mt-3">
             Entre para salvar sua coleção na nuvem e acessar de qualquer lugar.
@@ -190,7 +190,7 @@ export default function TelaLogin() {
         </div>
 
         <p className="text-center text-[10px] text-stone-600 mt-4">
-          © 2026 • Meu Álbum da Copa
+          © 2026 • Álbum FIFA • albumfifa.com.br
         </p>
       </motion.div>
     </div>
