@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Package, Wand2 } from 'lucide-react';
+import { Plus, Package, Wand2, ScanLine } from 'lucide-react';
 import { sfx, sfxState } from '../lib/sfx.js';
 
-export default function FAB({ onPacote, onQuick }) {
+export default function FAB({ onPacote, onQuick, onScan }) {
   const [aberto, setAberto] = useState(false);
 
   const toggle = () => { sfxState.unlock(); sfx.tick(); setAberto((v) => !v); };
@@ -14,6 +14,20 @@ export default function FAB({ onPacote, onQuick }) {
       <AnimatePresence>
         {aberto && (
           <>
+            {onScan && (
+              <motion.button
+                key="b0"
+                initial={{ opacity: 0, y: 20, scale: 0.7 }}
+                animate={{ opacity: 1, y: 0,  scale: 1 }}
+                exit={{ opacity: 0, y: 20, scale: 0.7 }}
+                transition={{ type: 'spring', stiffness: 380, damping: 22, delay: 0.10 }}
+                whileHover={{ scale: 1.05, x: -4 }}
+                onClick={fire(onScan, 'beep')}
+                className="px-4 py-3 rounded-full bg-stone-900/95 backdrop-blur ring-1 ring-sky-500/50 text-sky-300 text-xs font-bold flex items-center gap-2 shadow-2xl shine"
+              >
+                <ScanLine className="w-4 h-4" /> Escanear figurinha
+              </motion.button>
+            )}
             <motion.button
               key="b1"
               initial={{ opacity: 0, y: 20, scale: 0.7 }}

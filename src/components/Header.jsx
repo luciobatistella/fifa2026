@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Trophy, Plus, Package, Settings } from 'lucide-react';
+import { Trophy, Plus, Package, Settings, ScanLine } from 'lucide-react';
 import IconBtn from './ui/IconBtn.jsx';
 import SFXToggle from './ui/SFXToggle.jsx';
 import AnimatedNumber from './effects/AnimatedNumber.jsx';
@@ -10,7 +10,7 @@ import { spring } from '../lib/anims.js';
 
 const wrap = (fn, sound = 'tick') => () => { sfxState.unlock(); sfx[sound] && sfx[sound](); fn && fn(); };
 
-export default function Header({ stats, onPacote, onQuick, onConfig }) {
+export default function Header({ stats, onPacote, onQuick, onConfig, onScan }) {
   return (
     <header className="relative border-b border-amber-500/20 overflow-hidden">
       {/* halos */}
@@ -52,6 +52,9 @@ export default function Header({ stats, onPacote, onQuick, onConfig }) {
             className="flex items-center gap-1.5 shrink-0"
           >
             <SFXToggle />
+            {onScan && (
+              <IconBtn title="Escanear (S)"     onClick={wrap(onScan, 'beep')}><ScanLine className="w-4 h-4" /></IconBtn>
+            )}
             <IconBtn title="Adicionar (A)"     onClick={wrap(onQuick, 'swoosh')}><Plus className="w-4 h-4" /></IconBtn>
             <IconBtn title="Abrir pacote (P)"  onClick={wrap(onPacote, 'pack')}><Package className="w-4 h-4" /></IconBtn>
             <IconBtn title="Configurações"     onClick={wrap(onConfig, 'tick')}><Settings className="w-4 h-4" /></IconBtn>

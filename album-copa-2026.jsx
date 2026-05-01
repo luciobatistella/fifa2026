@@ -28,6 +28,7 @@ import ModalPacote   from './src/components/modals/ModalPacote.jsx';
 import ModalQuickAdd from './src/components/modals/ModalQuickAdd.jsx';
 import ModalConfig   from './src/components/modals/ModalConfig.jsx';
 import ModalAtalhos  from './src/components/modals/ModalAtalhos.jsx';
+import Scanner       from './src/components/Scanner.jsx';
 
 /* Parser de códigos colados (pacote / quickAdd). Aceita apenas PREFIX-N ou PREFIX N. */
 function parseCodigos(texto) {
@@ -60,6 +61,7 @@ export default function App() {
   const [mQuick, setMQuick]     = useState(false);
   const [mConfig, setMConfig]   = useState(false);
   const [mAtalhos, setMAtalhos] = useState(false);
+  const [mScan, setMScan]       = useState(false);
 
   const confettiRef = useRef(null);
 
@@ -139,6 +141,15 @@ export default function App() {
     push(`+${ids.length} figurinhas adicionadas`, 'emerald');
   }, [adicionarMuitos, push]);
 
+  const handleScan = useCallback((ids) => {
+    if (!ids || ids.length === 0) return;
+    adicionarMuitos(ids);
+    ids.forEach((id) => {
+      const info = rotuloFigurinha(id);
+      push(`+1 ${info.emoji} ${info.titulo}`, 'emerald');
+    });
+  }, [adicionarMuitos, push]);
+
   const handleSalvarConfig = useCallback((novo) => {
     setMeta((m) => ({ ...m, ...novo }));
     setMConfig(false);
@@ -191,6 +202,7 @@ export default function App() {
   const atalhos = useMemo(() => ({
     'P': () => setMPacote(true),
     'A': () => setMQuick(true),
+    'S': () => setMScan(true),
     '?': () => setMAtalhos(true),
     '/': (e) => { e.preventDefault(); setAba('buscar'); },
     '1': () => setAba('dashboard'),
@@ -269,6 +281,7 @@ export default function App() {
         onPacote={() => setMPacote(true)}
         onQuick={() => setMQuick(true)}
         onConfig={() => setMConfig(true)}
+        onScan={() => setMScan(true)}
       />
       <Tabs aba={aba} setAba={(a) => { setAba(a); setSelecaoAberta(null); }} />
 
@@ -283,9 +296,15 @@ export default function App() {
         </AnimatePresence>
       </main>
 
-      <FAB onPacote={() => setMPacote(true)} onQuick={() => setMQuick(true)} />
+      <FAB onPacote={() => setMPacote(true)} onQuick={() => setMQuick(true)} onScan={() => setMScan(true)} />
       <Toasts toasts={toasts} />
       <Confetti ref={confettiRef} />
+
+      <Scanner
+        aberto={mScan}
+        onFechar={() => setMScan(false)}
+        onDetectar={handleScan}
+      />
 
       <ModalPacote
         aberto={mPacote}

@@ -5,6 +5,7 @@ import ModalBase from './ModalBase.jsx';
 const ATALHOS = [
   ['P',   'Abrir pacote'],
   ['A',   'Adicionar (cola múltipla)'],
+  ['S',   'Escanear figurinha (câmera)'],
   ['/',   'Focar buscar'],
   ['1',   'Início'],
   ['2',   'Álbum'],

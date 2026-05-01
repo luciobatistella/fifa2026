@@ -116,6 +116,8 @@ export const sfx = {
   },
   /** Erro / inválido */
   err: () => tone({ freq: 200, slideTo: 120, type: 'sawtooth', dur: 0.2, peak: 0.3, decay: 0.06, sustain: 0.4, release: 0.15 }),
+  /** Beep de scanner (estilo caixa de supermercado) */
+  beep: () => tone({ freq: 2400, type: 'square', dur: 0.08, peak: 0.32, attack: 0.002, decay: 0.01, sustain: 0.7, release: 0.06 }),
 };
 
 export const sfxState = {
