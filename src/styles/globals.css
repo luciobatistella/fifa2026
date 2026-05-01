@@ -1,0 +1,106 @@
+/* ================================================================
+   COPA 2026 — Design System (estilos globais).
+   Inclua este arquivo no seu bundler/HTML (ex.: import em main.jsx).
+   ================================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@500;600;700&family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+:root {
+  --copa-gold-1: #fde047;
+  --copa-gold-2: #fbbf24;
+  --copa-gold-3: #f59e0b;
+  --copa-emerald: #10b981;
+  --copa-emerald-2: #34d399;
+  --copa-rose: #fb7185;
+  --copa-bg: #050505;
+}
+
+html, body, #root { background: #050505; }
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background:
+    radial-gradient(1200px 600px at 20% -10%, rgba(245,158,11,0.10), transparent 60%),
+    radial-gradient(1000px 500px at 100% 10%, rgba(16,185,129,0.08), transparent 60%),
+    #050505;
+  background-attachment: fixed;
+  color: #e7e5e4;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Display fonts utilitárias */
+.font-display  { font-family: 'Bebas Neue', 'Oswald', sans-serif; letter-spacing: 0.01em; }
+.font-stencil  { font-family: 'Oswald', sans-serif; }
+
+/* ============ Holographic / foil ============ */
+.text-holo {
+  background-image: linear-gradient(120deg,
+    #fde047 0%, #fbbf24 20%, #ffffff 35%, #fbbf24 55%, #f59e0b 75%, #fde047 100%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+          background-clip: text;
+  color: transparent;
+  animation: holoShift 4.5s linear infinite;
+  text-shadow: 0 0 30px rgba(251,191,36,0.25);
+}
+@keyframes holoShift {
+  to { background-position: -220% 0; }
+}
+
+.bg-foil {
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0) 40%),
+    linear-gradient(120deg, #1a1207 0%, #2a1a06 35%, #1a1207 70%, #0e0a04 100%);
+}
+
+/* Shine sweep on hover */
+.shine { position: relative; overflow: hidden; }
+.shine::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(110deg, transparent 35%, rgba(255,255,255,0.18) 50%, transparent 65%);
+  transform: translateX(-110%);
+  transition: transform 0.7s cubic-bezier(.22,1,.36,1);
+  pointer-events: none;
+}
+.shine:hover::before { transform: translateX(110%); }
+
+/* Stadium pulse glow */
+@keyframes stadiumPulse {
+  0%, 100% { box-shadow: 0 0 22px rgba(245,158,11,0.25), 0 0 60px rgba(245,158,11,0.10); }
+  50%      { box-shadow: 0 0 38px rgba(245,158,11,0.55), 0 0 100px rgba(245,158,11,0.20); }
+}
+.glow-amber { animation: stadiumPulse 2.6s ease-in-out infinite; }
+
+/* Animated barrel of progress (shimmer over fill) */
+@keyframes barShimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.bar-shimmer {
+  background-image: linear-gradient(90deg, transparent, rgba(255,255,255,0.45), transparent);
+  background-size: 50% 100%;
+  background-repeat: no-repeat;
+  animation: barShimmer 2.2s linear infinite;
+}
+
+/* Grid background tipo gramado */
+.bg-pitch {
+  background-image:
+    linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* Scrollbar dark */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: #0a0a0a; }
+::-webkit-scrollbar-thumb { background: #292524; border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: #44403c; }
+
+/* Selection */
+::selection { background: rgba(251,191,36,0.4); color: #fff; }
+
+/* Reduce-motion */
+@media (prefers-reduced-motion: reduce) {
+  .text-holo, .glow-amber, .bar-shimmer { animation: none !important; }
+}
