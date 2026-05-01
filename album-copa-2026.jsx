@@ -28,6 +28,7 @@ import ModalPacote   from './src/components/modals/ModalPacote.jsx';
 import ModalQuickAdd from './src/components/modals/ModalQuickAdd.jsx';
 import ModalConfig   from './src/components/modals/ModalConfig.jsx';
 import ModalAtalhos  from './src/components/modals/ModalAtalhos.jsx';
+import ModalLogin    from './src/components/modals/ModalLogin.jsx';
 import Scanner       from './src/components/Scanner.jsx';
 
 /* Parser de códigos colados (pacote / quickAdd). Aceita apenas PREFIX-N ou PREFIX N. */
@@ -47,7 +48,7 @@ function parseCodigos(texto) {
 export default function App() {
   const {
     colecao, meta, carregando,
-    setMeta, inc, dec, adicionarMuitos, resetar,
+    setMeta, inc, dec, adicionarMuitos, resetar, substituirColecao,
     stats, repetidasLista, progressoSelecoes, especiais,
   } = useColecao();
   const { toasts, push } = useToasts();
@@ -62,6 +63,7 @@ export default function App() {
   const [mConfig, setMConfig]   = useState(false);
   const [mAtalhos, setMAtalhos] = useState(false);
   const [mScan, setMScan]       = useState(false);
+  const [mLogin, setMLogin]     = useState(false);
 
   const confettiRef = useRef(null);
 
@@ -282,6 +284,10 @@ export default function App() {
         onQuick={() => setMQuick(true)}
         onConfig={() => setMConfig(true)}
         onScan={() => setMScan(true)}
+        onLogin={() => setMLogin(true)}
+        colecao={colecao}
+        onSubstituirColecao={(nova) => { substituirColecao(nova); initRef.current = false; }}
+        pushToast={push}
       />
       <Tabs aba={aba} setAba={(a) => { setAba(a); setSelecaoAberta(null); }} />
 
@@ -315,6 +321,7 @@ export default function App() {
       <ModalQuickAdd aberto={mQuick}    onFechar={() => setMQuick(false)}    onConfirmar={handleQuickAdd} />
       <ModalConfig   aberto={mConfig}   onFechar={() => setMConfig(false)}   meta={meta} onSalvar={handleSalvarConfig} />
       <ModalAtalhos  aberto={mAtalhos}  onFechar={() => setMAtalhos(false)} />
+      <ModalLogin    aberto={mLogin}    onFechar={() => setMLogin(false)} />
     </div>
   );
 }

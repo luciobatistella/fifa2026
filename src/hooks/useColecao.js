@@ -60,6 +60,11 @@ export function useColecao() {
 
   const resetar = useCallback(() => setColecao({}), []);
 
+  /** Substitui inteiramente a coleção (usado em sync/import). */
+  const substituirColecao = useCallback((nova) => {
+    setColecao(nova && typeof nova === 'object' ? { ...nova } : {});
+  }, []);
+
   // Stats globais
   const stats = useMemo(() => {
     const ids = Object.keys(colecao);
@@ -91,7 +96,7 @@ export function useColecao() {
     // setters
     setMeta,
     // mutations
-    setQtd, inc, dec, adicionarMuitos, resetar,
+    setQtd, inc, dec, adicionarMuitos, resetar, substituirColecao,
     // derived
     stats, repetidasLista, progressoSelecoes, especiais,
   };

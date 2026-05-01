@@ -4,13 +4,14 @@ import { Trophy, Plus, Package, Settings, ScanLine } from 'lucide-react';
 import IconBtn from './ui/IconBtn.jsx';
 import SFXToggle from './ui/SFXToggle.jsx';
 import AnimatedNumber from './effects/AnimatedNumber.jsx';
+import UserMenu from './UserMenu.jsx';
 import { sfx, sfxState } from '../lib/sfx.js';
 import { TOTAL_FIGURINHAS } from '../data/selecoes.js';
 import { spring } from '../lib/anims.js';
 
 const wrap = (fn, sound = 'tick') => () => { sfxState.unlock(); sfx[sound] && sfx[sound](); fn && fn(); };
 
-export default function Header({ stats, onPacote, onQuick, onConfig, onScan }) {
+export default function Header({ stats, onPacote, onQuick, onConfig, onScan, onLogin, colecao, onSubstituirColecao, pushToast }) {
   return (
     <header className="relative border-b border-amber-500/20 overflow-hidden">
       {/* halos */}
@@ -58,6 +59,12 @@ export default function Header({ stats, onPacote, onQuick, onConfig, onScan }) {
             <IconBtn title="Adicionar (A)"     onClick={wrap(onQuick, 'swoosh')}><Plus className="w-4 h-4" /></IconBtn>
             <IconBtn title="Abrir pacote (P)"  onClick={wrap(onPacote, 'pack')}><Package className="w-4 h-4" /></IconBtn>
             <IconBtn title="Configurações"     onClick={wrap(onConfig, 'tick')}><Settings className="w-4 h-4" /></IconBtn>
+            <UserMenu
+              colecao={colecao}
+              onAbrirLogin={onLogin}
+              onSubstituirColecao={onSubstituirColecao}
+              pushToast={pushToast}
+            />
           </motion.div>
         </div>
 
