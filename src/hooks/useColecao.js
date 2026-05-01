@@ -6,15 +6,20 @@ import {
 import { progressoSelecao, progressoEspeciais, rotuloFigurinha } from '../lib/figurinhas.js';
 import { parseId } from '../data/album.js';
 
-export function useColecao() {
+export function useColecao(userId) {
+  const storageKey = userId ? `${STORAGE_KEY}:${userId}` : STORAGE_KEY;
+
   const [colecao, setColecao]       = useState({});
   const [meta, setMeta]             = useState({ precoPacote: 5, criadoEm: null });
   const [carregando, setCarregando] = useState(true);
 
-  // Load
+  // Load — recarrega sempre que o usuário muda
   useEffect(() => {
+    setColecao({});
+    setMeta({ precoPacote: 5, criadoEm: null });
+    setCarregando(true);
     (async () => {
-      const raw = await storage.get(STORAGE_KEY);
+      const raw = await storage.get(storageKey);
       if (raw) {
         try {
           const d = JSON.parse(raw);
@@ -26,13 +31,13 @@ export function useColecao() {
       }
       setCarregando(false);
     })();
-  }, []);
+  }, [storageKey]);
 
   // Save
   useEffect(() => {
     if (carregando) return;
-    storage.set(STORAGE_KEY, JSON.stringify({ colecao, meta, savedAt: new Date().toISOString() }));
-  }, [colecao, meta, carregando]);
+    storage.set(storageKey, JSON.stringify({ colecao, meta, savedAt: new Date().toISOString() }));
+  }, [colecao, meta, carregando, storageKey]);
 
   // Mutations
   const setQtd = useCallback((id, qtd) => {

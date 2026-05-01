@@ -49,13 +49,13 @@ function parseCodigos(texto) {
 }
 
 export default function App() {
+  const { user, loading: authLoading } = useAuth();
   const {
     colecao, meta, carregando,
     setMeta, inc, dec, adicionarMuitos, resetar, substituirColecao,
     stats, repetidasLista, progressoSelecoes, especiais,
-  } = useColecao();
+  } = useColecao(user?.id);
   const { toasts, push } = useToasts();
-  const { user, loading: authLoading } = useAuth();
 
   const [aba, setAba]                     = useState('dashboard');
   const [busca, setBusca]                 = useState('');
@@ -128,9 +128,8 @@ export default function App() {
 
   const handleDec = useCallback((id) => { dec(id); }, [dec]);
 
-  const handlePacote = useCallback((codigos) => {
-    const ids = parseCodigos(codigos.join(' '));
-    if (ids.length === 0) { sfx.err(); push('Nenhum código válido', 'rose'); return; }
+  const handlePacote = useCallback((ids) => {
+    if (!ids || ids.length === 0) { sfx.err(); push('Nenhum código válido', 'rose'); return; }
     adicionarMuitos(ids);
     setMPacote(false);
     sfx.pack();

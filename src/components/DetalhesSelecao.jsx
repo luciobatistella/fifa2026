@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
-import { ChevronLeft } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { ChevronLeft, LayoutList, LayoutGrid } from 'lucide-react';
 import FigurinhaCard from './FigurinhaCard.jsx';
+import FigurinhaSticker from './FigurinhaSticker.jsx';
 import Bandeira from './ui/Bandeira.jsx';
 import { FIGURINHAS_POR_SELECAO, BADGE_POS, TEAM_PHOTO_POS, indiceJogador } from '../data/selecoes.js';
 import { nomeJogador } from '../data/jogadores.js';
@@ -13,6 +14,7 @@ const FILTROS = [
 ];
 
 export default function DetalhesSelecao({ selecao, colecao, filtro, setFiltro, onInc, onDec, onVoltar }) {
+  const [vista, setVista] = useState('lista');
   let tem = 0, rep = 0;
   for (let i = 1; i <= FIGURINHAS_POR_SELECAO; i++) {
     const q = colecao[`${selecao.codigo}-${i}`] || 0;
@@ -88,41 +90,94 @@ export default function DetalhesSelecao({ selecao, colecao, filtro, setFiltro, o
         </div>
       </div>
 
-      {/* Filtros */}
-      <div className="flex items-center gap-1 mb-4 bg-stone-900 rounded-xl p-1 ring-1 ring-stone-800 w-fit">
-        {FILTROS.map((f) => (
+      {/* Filtros + Toggle de vista */}
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <div className="flex items-center gap-1 bg-stone-900 rounded-xl p-1 ring-1 ring-stone-800">
+          {FILTROS.map((f) => (
+            <button
+              key={f.id}
+              onClick={() => setFiltro(f.id)}
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-bold tracking-wide transition-all ${
+                filtro === f.id
+                  ? 'bg-amber-400 text-stone-950 shadow-sm'
+                  : 'text-stone-400 hover:text-stone-200'
+              }`}
+            >
+              {f.label} <span className="opacity-60">{contadores[f.id]}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-0.5 bg-stone-900 rounded-xl p-1 ring-1 ring-stone-800 ml-auto">
           <button
-            key={f.id}
-            onClick={() => setFiltro(f.id)}
-            className={`px-3 py-1.5 rounded-lg text-[11px] font-bold tracking-wide transition-all ${
-              filtro === f.id
-                ? 'bg-amber-400 text-stone-950 shadow-sm'
+            onClick={() => setVista('lista')}
+            title="Vista em lista"
+            className={`p-1.5 rounded-lg transition-all ${
+              vista === 'lista'
+                ? 'bg-amber-400 text-stone-950'
                 : 'text-stone-400 hover:text-stone-200'
             }`}
           >
-            {f.label} <span className="opacity-60">{contadores[f.id]}</span>
+            <LayoutList className="w-4 h-4" />
           </button>
-        ))}
+          <button
+            onClick={() => setVista('grade')}
+            title="Vista em grade"
+            className={`p-1.5 rounded-lg transition-all ${
+              vista === 'grade'
+                ? 'bg-amber-400 text-stone-950'
+                : 'text-stone-400 hover:text-stone-200'
+            }`}
+          >
+            <LayoutGrid className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
-      <div className="space-y-1.5">
-        {figurinhas.length === 0 && (
-          <div className="text-center text-sm text-stone-500 py-10">Nenhuma figurinha neste filtro</div>
-        )}
-        {figurinhas.map((f) => (
-          <FigurinhaCard
-            key={f.id}
-            id={f.id}
-            numero={f.idx}
-            rotulo={f.rotulo}
-            info={{ selecao, kind: f.kind, sub: f.kind === 'badge' ? 'Escudo da seleção' : `${selecao.nome} · #${f.idx}` }}
-            qtd={f.qtd}
-            destaque={f.kind === 'badge'}
-            onInc={() => onInc(f.id)}
-            onDec={() => onDec(f.id)}
-          />
-        ))}
-      </div>
+      {/* Lista */}
+      {vista === 'lista' && (
+        <div className="space-y-1.5">
+          {figurinhas.length === 0 && (
+            <div className="text-center text-sm text-stone-500 py-10">Nenhuma figurinha neste filtro</div>
+          )}
+          {figurinhas.map((f) => (
+            <FigurinhaCard
+              key={f.id}
+              id={f.id}
+              numero={f.idx}
+              rotulo={f.rotulo}
+              info={{ selecao, kind: f.kind, sub: f.kind === 'badge' ? 'Escudo da seleção' : `${selecao.nome} · #${f.idx}` }}
+              qtd={f.qtd}
+              destaque={f.kind === 'badge'}
+              onInc={() => onInc(f.id)}
+              onDec={() => onDec(f.id)}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Grade */}
+      {vista === 'grade' && (
+        <div>
+          {figurinhas.length === 0 && (
+            <div className="text-center text-sm text-stone-500 py-10">Nenhuma figurinha neste filtro</div>
+          )}
+          <div className="grid grid-cols-4 gap-3">
+            {figurinhas.map((f) => (
+              <FigurinhaSticker
+                key={f.id}
+                numero={f.idx}
+                rotulo={f.rotulo}
+                kind={f.kind}
+                selecao={selecao}
+                qtd={f.qtd}
+                onInc={() => onInc(f.id)}
+                onDec={() => onDec(f.id)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

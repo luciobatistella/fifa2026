@@ -56,7 +56,7 @@ export default function SideMenu({
   onPacote, onQuick, onConfig, onScan, onLogin,
   colecao, onSubstituirColecao, pushToast,
 }) {
-  const { enabled, user, signOut, loading } = useAuth();
+  const { enabled, user, signOut, loading, signInWithGoogle } = useAuth();
   const [muted, setMuted] = useState(() => sfxState.isMuted());
   const [busy, setBusy] = useState(null);
   const [remoteN, setRemoteN] = useState(null);
@@ -263,6 +263,37 @@ export default function SideMenu({
                 />
               </Section>
 
+              {!user && (
+                <Section title="Conta">
+                  <Item
+                    icon={busy === 'google' ? Loader2 : LogIn}
+                    label="Entrar com Google"
+                    hint="Login rápido com sua conta Google"
+                    tone="sky"
+                    disabled={loading || busy === 'google'}
+                    onClick={async () => {
+                      sfxState.unlock();
+                      sfx.swoosh && sfx.swoosh();
+                      if (!enabled) {
+                        pushToast?.('Configure o Supabase no .env.local para usar o login', 'amber');
+                        return;
+                      }
+                      setBusy('google');
+                      try { await signInWithGoogle(); } catch (e) {
+                        pushToast?.(`Erro no login: ${e?.message}`, 'rose');
+                      } finally { setBusy(null); }
+                    }}
+                  />
+                  <Item
+                    icon={LogIn}
+                    label="Entrar com e-mail"
+                    hint="Link mágico sem senha"
+                    tone="amber"
+                    disabled={loading}
+                    onClick={() => { sfxState.unlock(); sfx.swoosh && sfx.swoosh(); onLogin?.(); setOpen(false); }}
+                  />
+                </Section>
+              )}
               {enabled && user && (
                 <Section title="Conta">
                   <Item icon={LogOut} label="Sair da conta" tone="rose" onClick={handleLogout} />

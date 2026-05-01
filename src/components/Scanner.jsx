@@ -40,7 +40,7 @@ function extractIds(text, debug) {
   return [...ids];
 }
 
-export default function Scanner({ aberto, onFechar, onDetectar }) {
+export default function Scanner({ aberto, onFechar, onDetectar, hideBottom = false }) {
   const videoRef   = useRef(null);
   const canvasRef  = useRef(null);
   const streamRef  = useRef(null);
@@ -408,7 +408,7 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
             </div>
           )}
 
-          <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
+          {!hideBottom && <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
             <div className="max-w-md mx-auto space-y-2">
               <div className="flex items-center justify-between px-1">
                 <div className="text-[10px] uppercase tracking-[0.25em] text-stone-400 font-bold">
@@ -451,7 +451,7 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
                 </div>
               )}
             </div>
-          </div>
+          </div>}
         </motion.div>
       )}
     </AnimatePresence>
