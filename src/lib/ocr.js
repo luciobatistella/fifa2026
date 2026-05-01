@@ -1,25 +1,30 @@
 import { createWorker, PSM } from 'tesseract.js';
+import { SELECOES } from '../data/selecoes.js';
 
 /**
- * Worker singleton de OCR.
- * Carrega o modelo de inglês (rápido, suficiente pra códigos tipo "BRA-5").
- * Restringe vocabulário a A-Z 0-9 e hífen pra acelerar e reduzir falsos positivos.
+ * Worker singleton de OCR — focado em ler a "pílula" de código no verso da
+ * figurinha (ex.: "IRQ 9", "FWC 19").
+ *
+ * Estratégia:
+ *  - Modelo `eng` (rápido, basta para A-Z 0-9).
+ *  - Whitelist restrita.
+ *  - PSM SINGLE_LINE: assumimos que o crop contém apenas o código.
  */
 let workerPromise = null;
 let initialized = false;
 
-const ALLOWED_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789- ';
+const ALLOWED_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ';
+
+/** Conjunto de prefixos válidos do álbum (FWC + códigos das seleções). */
+export const VALID_PREFIXES = new Set(['FWC', ...SELECOES.map((s) => s.codigo)]);
 
 export function getOCRWorker() {
   if (workerPromise) return workerPromise;
   workerPromise = (async () => {
-    const w = await createWorker('eng', 1, {
-      // logger: (m) => console.log('[ocr]', m),
-    });
+    const w = await createWorker('eng', 1);
     await w.setParameters({
       tessedit_char_whitelist: ALLOWED_CHARS,
-      // SPARSE_TEXT: encontra texto esparso na imagem (bom pra códigos isolados)
-      tessedit_pageseg_mode: PSM.SPARSE_TEXT,
+      tessedit_pageseg_mode: PSM.SINGLE_LINE,
       preserve_interword_spaces: '1',
     });
     initialized = true;

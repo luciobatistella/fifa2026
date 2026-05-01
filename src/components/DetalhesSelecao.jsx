@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import FigurinhaCard from './FigurinhaCard.jsx';
 import Bandeira from './ui/Bandeira.jsx';
-import { FIGURINHAS_POR_SELECAO } from '../data/selecoes.js';
+import { FIGURINHAS_POR_SELECAO, BADGE_POS, TEAM_PHOTO_POS, indiceJogador } from '../data/selecoes.js';
 import { nomeJogador } from '../data/jogadores.js';
 
 const FILTROS = [
@@ -26,11 +26,12 @@ export default function DetalhesSelecao({ selecao, colecao, filtro, setFiltro, o
     for (let i = 1; i <= FIGURINHAS_POR_SELECAO; i++) {
       const id = `${selecao.codigo}-${i}`;
       const qtd = colecao[id] || 0;
-      const isBadge = i === 1;
-      const isExtra = i === FIGURINHAS_POR_SELECAO;
+      const isBadge = i === BADGE_POS;
+      const isExtra = i === TEAM_PHOTO_POS;
+      const idxJog  = indiceJogador(i);
       const rotulo = isBadge ? `Escudo · ${selecao.nome}`
                   : isExtra ? 'Foto da Equipe'
-                  : (nomeJogador(selecao.codigo, i - 1) || `Jogador #${i - 1}`);
+                  : (nomeJogador(selecao.codigo, i) || `Jogador #${(idxJog ?? 0) + 1}`);
       const kind = isBadge ? 'badge' : isExtra ? 'extra' : 'player';
       arr.push({ id, idx: i, qtd, rotulo, kind });
     }
@@ -68,7 +69,7 @@ export default function DetalhesSelecao({ selecao, colecao, filtro, setFiltro, o
           <div className="min-w-0">
             <div className="text-[10px] tracking-[0.25em] text-amber-400 font-bold">GRUPO {selecao.grupo}</div>
             <div className="text-2xl sm:text-3xl font-black leading-tight">{selecao.nome}</div>
-            <div className="text-[10px] text-stone-500 mt-0.5">19 figurinhas • Escudo + 18 jogadores</div>
+            <div className="text-[10px] text-stone-500 mt-0.5">{FIGURINHAS_POR_SELECAO} figurinhas • Escudo + Foto da Equipe + 18 jogadores</div>
           </div>
           <div className="ml-auto text-right shrink-0">
             <div className="text-3xl sm:text-4xl font-black text-amber-400 leading-none tabular-nums">

@@ -1,13 +1,23 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Camera, Zap, ZapOff, Loader2, Check, Sparkles, Bug } from 'lucide-react';
-import { recognize, getOCRWorker, disposeOCR } from '../lib/ocr.js';
+import { recognize, getOCRWorker, disposeOCR, VALID_PREFIXES } from '../lib/ocr.js';
 import { normalizeId } from '../data/album.js';
 import { rotuloFigurinha } from '../lib/figurinhas.js';
 import { sfx, sfxState } from '../lib/sfx.js';
 
-/* Aceita 2-5 chars (letra ou número, OCR confunde) seguidos de 1-2 dígitos */
-const CODE_REGEX = /\b([A-Z0-9]{2,5})\s*[-]?\s*(\d{1,2})\b/g;
+/* Padrão estrito da pílula: 3 letras + 1-2 dígitos (com ou sem espaço/hífen). */
+const CODE_REGEX = /([A-Z0-9]{3})\s*[- ]?\s*(\d{1,2})/g;
+
+/* Conserta confusões OCR no prefixo (alfanumérico parece número). */
+function fixPrefix(s) {
+  return s
+    .replace(/0/g, 'O')
+    .replace(/1/g, 'I')
+    .replace(/5/g, 'S')
+    .replace(/8/g, 'B')
+    .replace(/2/g, 'Z');
+}
 
 function extractIds(text, debug) {
   if (!text) return [];
@@ -15,17 +25,14 @@ function extractIds(text, debug) {
   const ids = new Set();
   const debugMatches = [];
   let m;
+  CODE_REGEX.lastIndex = 0;
   while ((m = CODE_REGEX.exec(upper)) !== null) {
-    let prefix = m[1];
-    // Conserta confusões clássicas do OCR (números → letras parecidas no prefixo)
-    const fixed = prefix
-      .replace(/0/g, 'O')
-      .replace(/1/g, 'I')
-      .replace(/5/g, 'S')
-      .replace(/8/g, 'B');
-    const norm = normalizeId(`${fixed}-${m[2]}`);
-    debugMatches.push(`${prefix}-${m[2]} → ${norm || 'inválido'}`);
-    if (!norm) continue;
+    const prefix = fixPrefix(m[1]);
+    const num = parseInt(m[2], 10);
+    const norm = normalizeId(`${prefix}-${num}`);
+    const valid = norm && VALID_PREFIXES.has(prefix) && num >= 1 && num <= 30;
+    debugMatches.push(`${m[1]}${m[2]}→${prefix}-${num}${valid ? '✓' : '✗'}`);
+    if (!valid) continue;
     const info = rotuloFigurinha(norm);
     if (info.kind && info.kind !== 'unknown') ids.add(norm);
   }
@@ -51,7 +58,11 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
   const [debug, setDebug] = useState({ frames: 0, lastText: '', matches: [], lastFrameMs: 0 });
 
   const COOLDOWN_MS = 1500;
-  const FRAME_MS    = 500;
+  const FRAME_MS    = 280;
+
+  /* Região do crop relativa ao vídeo (em fração 0..1).
+     A mira na UI é desenhada exatamente sobre essa área. */
+  const CROP = { xc: 0.5, yc: 0.5, w: 0.55, h: 0.13 };
 
   const iniciarCamera = useCallback(async () => {
     setErro('');
@@ -141,12 +152,15 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
     const vw = v.videoWidth, vh = v.videoHeight;
     if (!vw || !vh) return;
 
-    // Crop central 80% x 50%, scale-up 1.5x
-    const cw = Math.floor(vw * 0.80);
-    const ch = Math.floor(vh * 0.50);
-    const sx = Math.floor((vw - cw) / 2);
-    const sy = Math.floor((vh - ch) / 2);
-    const scale = 1.5;
+    // Crop pequeno na "pílula" do código (centro da mira), com upscale forte.
+    const cw = Math.max(80, Math.floor(vw * CROP.w));
+    const ch = Math.max(40, Math.floor(vh * CROP.h));
+    const sx = Math.floor(vw * CROP.xc - cw / 2);
+    const sy = Math.floor(vh * CROP.yc - ch / 2);
+
+    // Alvo: ~64px de altura para o texto — boa zona pra Tesseract.
+    const targetH = 96;
+    const scale   = Math.max(1, targetH / ch);
     const dw = Math.floor(cw * scale);
     const dh = Math.floor(ch * scale);
 
@@ -157,15 +171,18 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(v, sx, sy, cw, ch, 0, 0, dw, dh);
 
-    // Binarização Otsu
+    // Pré-processamento: tons de cinza + Otsu + auto-invert se fundo for escuro.
     const img = ctx.getImageData(0, 0, dw, dh);
     const d = img.data;
     const hist = new Array(256).fill(0);
+    let mean = 0;
     for (let i = 0; i < d.length; i += 4) {
       const g = (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114) | 0;
       hist[g]++;
+      mean += g;
     }
     const total = d.length / 4;
+    mean /= total;
     let sum = 0;
     for (let t = 0; t < 256; t++) sum += t * hist[t];
     let sumB = 0, wB = 0, max = 0, threshold = 127;
@@ -180,9 +197,13 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
       const between = wB * wF * (mB - mF) * (mB - mF);
       if (between > max) { max = between; threshold = t; }
     }
+    // A pílula no verso é cinza escuro com texto claro → maioria dos pixels
+    // é escura. Invertemos para entregar texto preto sobre fundo branco.
+    const invert = mean < 128;
     for (let i = 0; i < d.length; i += 4) {
       const g = (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114) | 0;
-      const v2 = g < threshold ? 0 : 255;
+      let v2 = g < threshold ? 0 : 255;
+      if (invert) v2 = 255 - v2;
       d[i] = d[i + 1] = d[i + 2] = v2;
     }
     ctx.putImageData(img, 0, 0);
@@ -278,29 +299,32 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
           />
           <canvas ref={canvasRef} className="hidden" />
 
-          {/* Mira */}
+          {/* Mira: formato de "pílula" alinhada com o código no verso da figurinha */}
           <div className="absolute inset-0 pointer-events-none">
-            <div className="absolute inset-0 bg-black/30" />
+            <div className="absolute inset-0 bg-black/55" />
             <div
-              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-2xl ring-2 ring-amber-400 shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]"
-              style={{ width: '80vw', maxWidth: 540, aspectRatio: '8 / 5' }}
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-amber-400 shadow-[0_0_0_9999px_rgba(0,0,0,0.55)]"
+              style={{ width: `${CROP.w * 100}vw`, maxWidth: 360, aspectRatio: `${CROP.w / CROP.h} / 1` }}
             >
               {['tl', 'tr', 'bl', 'br'].map((c) => (
                 <div
                   key={c}
-                  className={`absolute w-5 h-5 border-amber-400 ${
-                    c === 'tl' ? 'top-0 left-0 border-t-4 border-l-4 rounded-tl-2xl' :
-                    c === 'tr' ? 'top-0 right-0 border-t-4 border-r-4 rounded-tr-2xl' :
-                    c === 'bl' ? 'bottom-0 left-0 border-b-4 border-l-4 rounded-bl-2xl' :
-                                 'bottom-0 right-0 border-b-4 border-r-4 rounded-br-2xl'
+                  className={`absolute w-4 h-4 border-amber-400 ${
+                    c === 'tl' ? '-top-1 -left-1 border-t-4 border-l-4 rounded-tl-full' :
+                    c === 'tr' ? '-top-1 -right-1 border-t-4 border-r-4 rounded-tr-full' :
+                    c === 'bl' ? '-bottom-1 -left-1 border-b-4 border-l-4 rounded-bl-full' :
+                                 '-bottom-1 -right-1 border-b-4 border-r-4 rounded-br-full'
                   }`}
                 />
               ))}
               <motion.div
-                className="absolute left-2 right-2 h-[2px] bg-amber-400 shadow-[0_0_12px_2px_rgba(251,191,36,0.9)]"
-                animate={{ top: ['8%', '92%', '8%'] }}
-                transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
+                className="absolute left-3 right-3 h-[2px] bg-amber-400 shadow-[0_0_12px_2px_rgba(251,191,36,0.9)]"
+                animate={{ top: ['12%', '88%', '12%'] }}
+                transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
               />
+              <div className="absolute -top-7 left-1/2 -translate-x-1/2 text-[10px] uppercase tracking-[0.25em] text-amber-300 font-bold whitespace-nowrap">
+                código aqui
+              </div>
             </div>
           </div>
 
@@ -422,8 +446,8 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
               </div>
               {historico.length === 0 && status === 'scanning' && (
                 <div className="text-center text-[11px] text-stone-400 px-4">
-                  Centralize o código (ex.: <span className="font-mono text-amber-400">BRA-5</span>) na mira.
-                  Toque na tela para focar.
+                  Vire a figurinha e encaixe a etiqueta <span className="font-mono text-amber-400">XXX&nbsp;9</span> dentro da pílula.
+                  Toque na tela pra focar.
                 </div>
               )}
             </div>

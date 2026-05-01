@@ -64,8 +64,33 @@ export const SELECOES = [
   { codigo: 'PAN', nome: 'Panamá',            bandeira: '🇵🇦', grupo: 'L' },
 ];
 
-export const FIGURINHAS_POR_SELECAO = 20;          // padrão oficial Panini 2026 (1 escudo + 18 jogadores + 1 extra)
+export const FIGURINHAS_POR_SELECAO = 20;          // padrão oficial Panini 2026 (1 escudo + 1 foto da equipe + 18 jogadores)
 export const TOTAL_ESPECIAIS        = 30;          // FWC-1 .. FWC-30
 export const TOTAL_FIGURINHAS       = TOTAL_ESPECIAIS + SELECOES.length * FIGURINHAS_POR_SELECAO; // 990
 export const FIGURINHAS_POR_PACOTE  = 7;
 export const STORAGE_KEY            = 'album-copa-2026.v2';
+
+// ---------------------------------------------------------------------------
+// Posições reservadas dentro de cada seleção (1-indexed):
+//   slot 1   → ESCUDO da seleção
+//   slot 13  → FOTO da equipe
+//   demais   → 18 jogadores (slots 2..12 e 14..20)
+// ---------------------------------------------------------------------------
+export const BADGE_POS      = 1;
+export const TEAM_PHOTO_POS = 13;
+
+/** True se a posição corresponde ao escudo. */
+export const isBadgePos = (p) => p === BADGE_POS;
+
+/** True se a posição corresponde à foto da equipe. */
+export const isTeamPhotoPos = (p) => p === TEAM_PHOTO_POS;
+
+/**
+ * Converte uma posição do álbum (1..20) no índice 0-based do array de jogadores.
+ * Retorna null para escudo/foto ou posição fora de faixa.
+ */
+export function indiceJogador(posicao) {
+  if (posicao === BADGE_POS || posicao === TEAM_PHOTO_POS) return null;
+  if (posicao < 1 || posicao > FIGURINHAS_POR_SELECAO)     return null;
+  return posicao < TEAM_PHOTO_POS ? posicao - 2 : posicao - 3;
+}

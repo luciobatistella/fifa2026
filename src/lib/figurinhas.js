@@ -7,6 +7,7 @@
 
 import {
   SELECOES, FIGURINHAS_POR_SELECAO, TOTAL_ESPECIAIS, TOTAL_FIGURINHAS,
+  BADGE_POS, TEAM_PHOTO_POS, indiceJogador,
 } from '../data/selecoes.js';
 import { nomeJogador } from '../data/jogadores.js';
 import { infoEspecial } from '../data/especiais.js';
@@ -43,8 +44,8 @@ export function rotuloFigurinha(id) {
   const sel = SELECOES.find((s) => s.codigo === p.prefix);
   if (!sel) return { titulo: id, sub: '', emoji: '❓', kind: 'unknown', code: toCode(id) };
 
-  // Convenção do álbum: 1=escudo, 2..19=jogadores, 20=extra
-  if (p.number === 1) {
+  // Convenção do álbum: 1=escudo, 13=foto da equipe, demais=jogadores
+  if (p.number === BADGE_POS) {
     return {
       titulo: sel.nome,
       sub: `Escudo · ${toCode(id)}`,
@@ -54,7 +55,7 @@ export function rotuloFigurinha(id) {
       selecao: sel,
     };
   }
-  if (p.number === FIGURINHAS_POR_SELECAO) {
+  if (p.number === TEAM_PHOTO_POS) {
     return {
       titulo: 'Foto da Equipe',
       sub: `${sel.nome} · ${toCode(id)}`,
@@ -64,7 +65,8 @@ export function rotuloFigurinha(id) {
       selecao: sel,
     };
   }
-  const nome = nomeJogador(sel.codigo, p.number - 1) || `Jogador #${p.number - 1}`;
+  const idxJog = indiceJogador(p.number);
+  const nome = nomeJogador(sel.codigo, p.number) || `Jogador #${(idxJog ?? 0) + 1}`;
   return {
     titulo: nome,
     sub: `${sel.nome} · ${toCode(id)}`,

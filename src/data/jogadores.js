@@ -1,5 +1,6 @@
 // Plantéis convocados para a Copa do Mundo FIFA 2026 (dados públicos).
-// 18 jogadores por seleção — a posição 1 do álbum é o ESCUDO; jogadores ocupam 2..19; a posição 20 é a Foto da Equipe.
+// 18 jogadores por seleção — a posição 1 do álbum é o ESCUDO; a posição 13 é a Foto da Equipe;
+// jogadores ocupam os demais slots (2..12 e 14..20).
 
 export const JOGADORES = {
   // ===== Grupo A =====
@@ -76,13 +77,17 @@ export const JOGADORES = {
   PAN: ['Orlando Mosquera','Luis Mejía','Fidel Escobar','Andrés Andrade','Michael Amir Murillo','Eric Davis','José Córdoba','César Blackman','Cristian Martínez','Aníbal Godoy','Adalberto Carrasquilla','Édgar Bárcenas','Carlos Harvey','Ismael Díaz','José Fajardo','Cecilio Waterman','José Luis Rodríguez','Alberto Quintero'],
 };
 
+import { indiceJogador } from './selecoes.js';
+
 /**
- * Retorna o nome do jogador da posição (1..18) de uma seleção,
- * ou null se for o escudo (0) ou se a posição estiver fora do plantel.
+ * Retorna o nome do jogador para uma posição do álbum (1..20).
+ * Retorna null para escudo (1), foto da equipe (13), código inválido
+ * ou posição fora do plantel.
  */
-export function nomeJogador(codigo, idx) {
-  if (idx < 1) return null;
+export function nomeJogador(codigo, posicao) {
+  const idx = indiceJogador(posicao);
+  if (idx == null) return null;
   const lista = JOGADORES[codigo];
   if (!lista) return null;
-  return lista[idx - 1] || null;
+  return lista[idx] || null;
 }

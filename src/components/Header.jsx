@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Trophy, Menu } from 'lucide-react';
+import { Trophy, Menu, LogIn } from 'lucide-react';
 import AnimatedNumber from './effects/AnimatedNumber.jsx';
 import SideMenu from './SideMenu.jsx';
 import { useAuth } from '../hooks/useAuth.js';
@@ -42,13 +42,19 @@ function Avatar({ user, size = 36 }) {
 }
 
 export default function Header({ stats, onPacote, onQuick, onConfig, onScan, onLogin, colecao, onSubstituirColecao, pushToast }) {
-  const { user } = useAuth();
+  const { user, enabled } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
 
   const abrirMenu = () => {
     sfxState.unlock();
     sfx.tick && sfx.tick();
     setMenuOpen(true);
+  };
+
+  const handleEntrar = () => {
+    sfxState.unlock();
+    sfx.swoosh && sfx.swoosh();
+    onLogin?.();
   };
 
   return (
@@ -89,8 +95,21 @@ export default function Header({ stats, onPacote, onQuick, onConfig, onScan, onL
 
           <motion.div
             initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={spring}
-            className="shrink-0"
+            className="shrink-0 flex items-center gap-2"
           >
+            {enabled && !user && (
+              <motion.button
+                whileHover={{ scale: 1.06 }}
+                whileTap={{ scale: 0.94 }}
+                onClick={handleEntrar}
+                title="Entrar na conta"
+                aria-label="Entrar"
+                className="flex items-center gap-1.5 px-3 h-11 rounded-full bg-amber-400/15 ring-1 ring-amber-400/40 text-amber-300 hover:bg-amber-400/25 hover:text-amber-200 transition text-xs font-bold uppercase tracking-[0.2em]"
+              >
+                <LogIn className="w-4 h-4" />
+                <span>Entrar</span>
+              </motion.button>
+            )}
             <motion.button
               whileHover={{ scale: 1.06 }}
               whileTap={{ scale: 0.94 }}
