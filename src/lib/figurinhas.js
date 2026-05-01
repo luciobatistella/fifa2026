@@ -10,8 +10,8 @@ import {
   BADGE_POS, TEAM_PHOTO_POS, indiceJogador,
 } from '../data/selecoes.js';
 import { nomeJogador } from '../data/jogadores.js';
-import { infoEspecial, infoCocaCola } from '../data/especiais.js';
-import { parseId, toCode, getCollectionState, buildSticker } from '../data/album.js';
+import { infoEspecial, infoCocaCola, infoExtra } from '../data/especiais.js';
+import { parseId, toCode, getCollectionState, buildSticker, EXTRAS_PREFIXES } from '../data/album.js';
 
 export const fmtNum = (n) => new Intl.NumberFormat('pt-BR').format(n);
 export const clamp  = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -47,6 +47,18 @@ export function rotuloFigurinha(id) {
       titulo: ic.nome,
       sub: `Coca-Cola · ${toCode(id)}`,
       emoji: ic.emoji,
+      kind: 'special',
+      code: toCode(id),
+    };
+  }
+
+  // ---- Extras (REGU/BRO/PRA/OURO) ----
+  if (p.group === 'extras') {
+    const ix = infoExtra(p.prefix);
+    return {
+      titulo: `Extra ${ix.nome}`,
+      sub: `Extras · ${toCode(id)}`,
+      emoji: ix.emoji,
       kind: 'special',
       code: toCode(id),
     };
@@ -115,7 +127,7 @@ export function progressoSelecao(colecao, codigo) {
 /** Progresso global das figurinhas FWC (especiais). */
 export function progressoEspeciais(colecao) {
   let tem = 0, rep = 0;
-  for (let i = 1; i <= TOTAL_ESPECIAIS; i++) {
+  for (let i = 0; i < TOTAL_ESPECIAIS; i++) {
     const q = colecao[`FWC-${i}`] || 0;
     if (q > 0) tem++;
     if (q > 1) rep += q - 1;
@@ -132,4 +144,16 @@ export function progressoCocaCola(colecao) {
     if (q > 1) rep += q - 1;
   }
   return { tem, total: TOTAL_CC, rep, perc: (tem / TOTAL_CC) * 100 };
+}
+
+/** Progresso global das figurinhas EXTRAS (REGU/BRO/PRA/OURO). */
+export function progressoExtras(colecao) {
+  const total = EXTRAS_PREFIXES.length;
+  let tem = 0, rep = 0;
+  for (const px of EXTRAS_PREFIXES) {
+    const q = colecao[`${px}-1`] || 0;
+    if (q > 0) tem++;
+    if (q > 1) rep += q - 1;
+  }
+  return { tem, total, rep, perc: total ? (tem / total) * 100 : 0 };
 }

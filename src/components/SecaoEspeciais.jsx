@@ -4,9 +4,16 @@ import { Sparkles as SparklesIcon, ChevronRight } from 'lucide-react';
 import Celula from './Celula.jsx';
 import { CATEGORIAS_ESPECIAIS, infoEspecial } from '../data/especiais.js';
 
-export default function SecaoEspeciais({ colecao, prog, onInc, onDec }) {
+export default function SecaoEspeciais({ colecao, prog, onInc, onDec, filtro = 'todas' }) {
   const [aberto, setAberto] = useState(true);   // ABRE por padrão
   const [catAtiva, setCatAtiva] = useState('todas');
+
+  const matchFiltro = (qtd) => {
+    if (filtro === 'completas')    return qtd >= 1;
+    if (filtro === 'incompletas')  return qtd === 0;
+    if (filtro === 'comRepetidas') return qtd > 1;
+    return true;
+  };
 
   const cats = catAtiva === 'todas'
     ? CATEGORIAS_ESPECIAIS
@@ -53,7 +60,7 @@ export default function SecaoEspeciais({ colecao, prog, onInc, onDec }) {
               </FiltroChip>
               {CATEGORIAS_ESPECIAIS.map((c) => {
                 const [a, b] = c.range;
-                const tem = Array.from({ length: b - a + 1 }).filter((_, k) => (colecao[`FWC-${a + k + 1}`] || 0) > 0).length;
+                const tem = Array.from({ length: b - a + 1 }).filter((_, k) => (colecao[`FWC-${a + k}`] || 0) > 0).length;
                 const tot = b - a + 1;
                 return (
                   <FiltroChip key={c.id} ativo={catAtiva === c.id} onClick={() => setCatAtiva(c.id)}>
@@ -70,8 +77,10 @@ export default function SecaoEspeciais({ colecao, prog, onInc, onDec }) {
             <div className="px-4 pb-4 space-y-4">
               {cats.map((cat) => {
                 const [a, b] = cat.range;
-                const itens = Array.from({ length: b - a + 1 }, (_, k) => a + k);
-                const tem = itens.filter((i) => (colecao[`FWC-${i + 1}`] || 0) > 0).length;
+                const itensTodos = Array.from({ length: b - a + 1 }, (_, k) => a + k);
+                const itens = itensTodos.filter((i) => matchFiltro(colecao[`FWC-${i}`] || 0));
+                const tem = itensTodos.filter((i) => (colecao[`FWC-${i}`] || 0) > 0).length;
+                if (itens.length === 0) return null;
                 return (
                   <div key={cat.id} className={`rounded-xl ring-1 bg-gradient-to-br ${cat.cor} p-3`}>
                     <div className="flex items-center justify-between mb-2">
@@ -79,24 +88,24 @@ export default function SecaoEspeciais({ colecao, prog, onInc, onDec }) {
                         <span className="text-2xl leading-none drop-shadow">{cat.emoji}</span>
                         <div>
                           <div className="text-xs font-bold tracking-wider text-stone-100">{cat.nome.toUpperCase()}</div>
-                          <div className="text-[10px] text-stone-400">FWC-{a + 1} a FWC-{b + 1}</div>
+                          <div className="text-[10px] text-stone-400">FWC-{String(a).padStart(2,'0')} a FWC-{String(b).padStart(2,'0')}</div>
                         </div>
                       </div>
                       <div className="font-mono text-sm font-bold text-stone-200">
-                        {tem}<span className="text-stone-500">/{itens.length}</span>
+                        {tem}<span className="text-stone-500">/{itensTodos.length}</span>
                       </div>
                     </div>
-                    <div className="grid grid-cols-8 sm:grid-cols-10 md:grid-cols-12 gap-1.5">
+                    <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-1.5">
                       {itens.map((i) => {
-                        const id = `FWC-${i + 1}`;
+                        const id = `FWC-${i}`;
                         const qtd = colecao[id] || 0;
                         const info = infoEspecial(i);
+                        const label = `FWC-${String(i).padStart(2, '0')}`;
                         return (
                           <Celula
                             key={id}
-                            numero={i + 1}
-                            emoji={info.emoji}
-                            titulo={`${info.nome} · FWC ${i + 1}`}
+                            numero={label}
+                            titulo={`${info.nome} · ${label}`}
                             qtd={qtd}
                             onInc={() => onInc(id)}
                             onDec={() => onDec(id)}

@@ -3,9 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, Plus, Package, Settings, ScanLine, Volume2, VolumeX,
   LogIn, LogOut, Cloud, CloudOff, Loader2, RefreshCw, Check,
+  Layers, Repeat,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth.js';
 import { sfx, sfxState } from '../lib/sfx.js';
+import { MODO_LABELS, MODO_HINTS } from '../contexts/ModoColagem.jsx';
 
 const wrap = (fn, sound = 'tick', closeAfter, setOpen) => () => {
   sfxState.unlock();
@@ -54,6 +56,7 @@ export default function SideMenu({
   open, setOpen,
   onPacote, onQuick, onConfig, onScan, onLogin,
   colecao, syncStatus = 'idle', onSincronizar, pushToast,
+  modoColagem = 'completo', onChangeModo,
 }) {
   const { enabled, user, signOut, loading, signInWithGoogle } = useAuth();
   const [muted, setMuted] = useState(() => sfxState.isMuted());
@@ -202,6 +205,18 @@ export default function SideMenu({
               )}
 
               <Section title="Preferências">
+                <Item
+                  icon={modoColagem === 'repetidas' ? Repeat : Layers}
+                  label={`Modo: ${MODO_LABELS[modoColagem] || MODO_LABELS.completo}`}
+                  hint={`Toque para alternar — ${MODO_HINTS[modoColagem === 'repetidas' ? 'completo' : 'repetidas']}`}
+                  tone={modoColagem === 'repetidas' ? 'amber' : 'stone'}
+                  onClick={() => {
+                    sfxState.unlock();
+                    sfx.tick && sfx.tick();
+                    const novo = modoColagem === 'repetidas' ? 'completo' : 'repetidas';
+                    onChangeModo?.(novo);
+                  }}
+                />
                 <Item
                   icon={muted ? VolumeX : Volume2}
                   label={muted ? 'Som desligado' : 'Som ligado'}

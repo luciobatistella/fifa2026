@@ -3,12 +3,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, UserPlus, Search, Check, X, Loader2, ArrowLeft, ArrowRight,
   ArrowLeftRight, Send, AlertCircle, Trash2, Inbox, Clock,
+  AtSign, Copy, Share2,
 } from 'lucide-react';
 import { rotuloFigurinha } from '../lib/figurinhas.js';
 import { listAllIds } from '../data/album.js';
 import {
   searchProfileByUsername, sendFriendRequest, acceptFriendRequest,
   removeFriendship, listFriendships, fetchFriendCollection,
+  getUsername, saveUsername,
 } from '../lib/sync.js';
 import { SUPABASE_ENABLED } from '../lib/supabase.js';
 import { sfx } from '../lib/sfx.js';
@@ -267,23 +269,86 @@ function TelaMatch({ amigo, minhaColecao, pushToast, onVoltar, meuUsername }) {
 }
 
 // ─── Tela principal de Amigos ───────────────────────────────────────────────
-export default function Amigos({ userId, meuUsername, minhaColecao, pushToast }) {
+export default function Amigos({ userId, minhaColecao, pushToast }) {
   const [carregando, setCarregando] = useState(true);
   const [grupos, setGrupos]         = useState({ aceitas: [], recebidas: [], enviadas: [] });
   const [busca, setBusca]           = useState('');
   const [buscando, setBuscando]     = useState(false);
   const [resultado, setResultado]   = useState(null); // {found:false} | profile
   const [amigoAberto, setAmigoAberto] = useState(null);
+  const [meuUsername, setMeuUsername] = useState(null);
+  const [editandoApelido, setEditandoApelido] = useState(false);
+  const [apelidoInput, setApelidoInput] = useState('');
+  const [salvandoApelido, setSalvandoApelido] = useState(false);
 
   const recarregar = async () => {
     if (!userId) return;
     setCarregando(true);
-    const g = await listFriendships(userId);
+    const [g, uname] = await Promise.all([
+      listFriendships(userId),
+      getUsername(userId),
+    ]);
     setGrupos(g);
+    setMeuUsername(uname || null);
     setCarregando(false);
   };
 
   useEffect(() => { recarregar(); /* eslint-disable-next-line */ }, [userId]);
+
+  const copiarApelido = async () => {
+    if (!meuUsername) return;
+    try {
+      await navigator.clipboard.writeText(`@${meuUsername}`);
+      sfx.ding();
+      pushToast(`@${meuUsername} copiado!`, 'emerald');
+    } catch (_) {
+      pushToast('Não foi possível copiar', 'rose');
+    }
+  };
+
+  const compartilharLink = async () => {
+    if (!meuUsername) return;
+    const url = `${window.location.origin}/trocas/${meuUsername}`;
+    const texto = `Vem trocar figurinhas comigo no álbum da Copa! Meu apelido: @${meuUsername}\n${url}`;
+    if (navigator.share) {
+      try { await navigator.share({ title: 'Álbum Copa 2026', text: texto, url }); return; } catch (_) {}
+    }
+    try {
+      await navigator.clipboard.writeText(texto);
+      sfx.ding();
+      pushToast('Link copiado!', 'emerald');
+    } catch (_) {
+      pushToast('Não foi possível copiar', 'rose');
+    }
+  };
+
+  const abrirEditorApelido = () => {
+    setApelidoInput(meuUsername || '');
+    setEditandoApelido(true);
+  };
+
+  const salvarApelido = async () => {
+    const val = apelidoInput.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+    if (!val || val.length < 3) {
+      pushToast('Apelido precisa ter pelo menos 3 caracteres (a-z, 0-9, _)', 'rose');
+      return;
+    }
+    setSalvandoApelido(true);
+    try {
+      await saveUsername(userId, val);
+      setMeuUsername(val);
+      setEditandoApelido(false);
+      sfx.ding();
+      pushToast(`Apelido @${val} salvo!`, 'emerald');
+    } catch (e) {
+      const msg = /duplicate|unique/i.test(e?.message || '')
+        ? 'Esse apelido já está em uso'
+        : `Erro: ${e.message}`;
+      pushToast(msg, 'rose');
+    } finally {
+      setSalvandoApelido(false);
+    }
+  };
 
   const handleBuscar = async (e) => {
     e?.preventDefault();
@@ -298,8 +363,8 @@ export default function Amigos({ userId, meuUsername, minhaColecao, pushToast })
     setResultado(prof);
   };
 
-  const handleEnviar = async (friendId) => {
-    const r = await sendFriendRequest(userId, friendId);
+  const handleEnviar = async (perfil) => {
+    const r = await sendFriendRequest(userId, perfil.id);
     if (!r.ok) {
       const msg = {
         ja_amigos: 'Vocês já são amigos',
@@ -307,21 +372,32 @@ export default function Amigos({ userId, meuUsername, minhaColecao, pushToast })
         voce_mesmo: 'Não dá para adicionar você mesmo',
         desabilitado: 'Login necessário',
       }[r.reason] || 'Não foi possível enviar';
+      // Se já são amigos, abre o match diretamente
+      if (r.reason === 'ja_amigos') {
+        setBusca(''); setResultado(null);
+        setAmigoAberto(perfil);
+        return;
+      }
       pushToast(msg, 'rose');
       return;
     }
     sfx.ding();
-    pushToast(r.status === 'accepted' ? 'Vocês agora são amigos!' : 'Pedido enviado', 'emerald');
+    const aceito = r.status === 'accepted';
+    pushToast(aceito ? 'Vocês agora são amigos! Veja o match 👇' : 'Pedido enviado', 'emerald');
     setBusca(''); setResultado(null);
     recarregar();
+    // Se virou amizade na hora, já abre o match
+    if (aceito) setAmigoAberto(perfil);
   };
 
-  const handleAceitar = async (otherId) => {
-    const ok = await acceptFriendRequest(otherId, userId);
+  const handleAceitar = async (perfil) => {
+    const ok = await acceptFriendRequest(perfil.id, userId);
     if (!ok) { pushToast('Erro ao aceitar', 'rose'); return; }
     sfx.ding();
-    pushToast('Amizade aceita!', 'emerald');
+    pushToast('Amizade aceita! Veja o match 👇', 'emerald');
     recarregar();
+    // Abre o match automaticamente
+    setAmigoAberto(perfil);
   };
 
   const handleRemover = async (otherId, msg = 'Removido') => {
@@ -362,6 +438,88 @@ export default function Amigos({ userId, meuUsername, minhaColecao, pushToast })
 
   return (
     <div className="space-y-6">
+      {/* Meu apelido */}
+      <div className={`rounded-2xl p-4 ring-1 ${meuUsername ? 'ring-amber-500/30 bg-gradient-to-br from-amber-900/20 via-stone-900 to-stone-950' : 'ring-amber-500/40 bg-amber-950/20'}`}>
+        <div className="text-[10px] font-bold tracking-[0.2em] mb-2 flex items-center gap-1.5 text-amber-400">
+          <AtSign className="w-3 h-3" /> SEU APELIDO
+        </div>
+
+        {editandoApelido ? (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-stone-500 text-base font-bold">@</span>
+              <input
+                autoFocus
+                value={apelidoInput}
+                onChange={(e) => setApelidoInput(e.target.value.replace(/[^a-z0-9_]/gi, '').toLowerCase())}
+                onKeyDown={(e) => { if (e.key === 'Enter') salvarApelido(); if (e.key === 'Escape') setEditandoApelido(false); }}
+                placeholder="seu_apelido"
+                maxLength={30}
+                className="flex-1 bg-stone-950 ring-1 ring-stone-800 focus:ring-amber-500/60 rounded-lg px-3 py-2 text-sm text-stone-100 outline-none min-w-0"
+              />
+              <button
+                onClick={salvarApelido}
+                disabled={salvandoApelido || !apelidoInput.trim()}
+                className="h-9 px-3 rounded-lg bg-emerald-400 text-stone-950 text-xs font-bold flex items-center gap-1 hover:bg-emerald-300 disabled:opacity-40 shrink-0"
+              >
+                {salvandoApelido ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                Salvar
+              </button>
+              <button
+                onClick={() => setEditandoApelido(false)}
+                className="w-9 h-9 rounded-lg bg-stone-900 ring-1 ring-stone-800 text-stone-400 flex items-center justify-center shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="text-[11px] text-stone-500">Use apenas letras minúsculas, números e _ (mín. 3 caracteres).</div>
+          </div>
+        ) : meuUsername ? (
+          <div className="flex items-center gap-2">
+            <div className="flex-1 min-w-0">
+              <div className="text-lg font-black text-stone-100 truncate">@{meuUsername}</div>
+              <div className="text-[11px] text-stone-500 truncate">Compartilhe com seus amigos para que eles te adicionem.</div>
+            </div>
+            <button
+              onClick={copiarApelido}
+              className="w-9 h-9 rounded-lg bg-stone-900 ring-1 ring-stone-800 text-amber-300 flex items-center justify-center hover:ring-amber-500/40 shrink-0"
+              title="Copiar @apelido"
+            >
+              <Copy className="w-4 h-4" />
+            </button>
+            <button
+              onClick={compartilharLink}
+              className="h-9 px-3 rounded-lg bg-amber-400 text-stone-950 text-xs font-bold flex items-center gap-1.5 hover:bg-amber-300 shrink-0"
+              title="Compartilhar link"
+            >
+              <Share2 className="w-3.5 h-3.5" /> Compartilhar
+            </button>
+            <button
+              onClick={abrirEditorApelido}
+              className="text-[10px] text-stone-500 hover:text-stone-300 px-1"
+              title="Editar apelido"
+            >
+              editar
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-300 mt-0.5 shrink-0" />
+              <div className="text-xs text-stone-300">
+                Você ainda não tem um apelido. Defina um para que seus amigos consigam te encontrar pela busca.
+              </div>
+            </div>
+            <button
+              onClick={abrirEditorApelido}
+              className="w-full h-9 px-3 rounded-lg bg-amber-400 text-stone-950 text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-amber-300"
+            >
+              <UserPlus className="w-3.5 h-3.5" /> Definir meu apelido
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* Buscar */}
       <div className="rounded-2xl ring-1 ring-stone-800 bg-stone-900 p-4">
         <div className="text-[10px] text-amber-400 font-bold tracking-[0.2em] mb-2">ADICIONAR AMIGO</div>
@@ -402,7 +560,7 @@ export default function Amigos({ userId, meuUsername, minhaColecao, pushToast })
                     <div className="text-[11px] text-stone-500">@{resultado.username}</div>
                   </div>
                   <button
-                    onClick={() => handleEnviar(resultado.id)}
+                    onClick={() => handleEnviar(resultado)}
                     className="px-3 py-2 rounded-lg bg-emerald-400 text-stone-950 text-xs font-bold flex items-center gap-1 hover:bg-emerald-300"
                   >
                     <UserPlus className="w-3.5 h-3.5" /> Adicionar
@@ -427,7 +585,7 @@ export default function Amigos({ userId, meuUsername, minhaColecao, pushToast })
                 <LinhaPerfil key={p.id} perfil={p}
                   acoes={
                     <>
-                      <button onClick={() => handleAceitar(p.id)} className="w-9 h-9 rounded-lg bg-emerald-400 text-stone-950 flex items-center justify-center hover:bg-emerald-300" title="Aceitar">
+                      <button onClick={() => handleAceitar(p)} className="w-9 h-9 rounded-lg bg-emerald-400 text-stone-950 flex items-center justify-center hover:bg-emerald-300" title="Aceitar">
                         <Check className="w-4 h-4" />
                       </button>
                       <button onClick={() => handleRemover(p.id, 'Pedido recusado')} className="w-9 h-9 rounded-lg bg-stone-800 text-stone-400 flex items-center justify-center hover:bg-rose-500/20 hover:text-rose-300" title="Recusar">

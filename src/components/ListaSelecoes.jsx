@@ -17,43 +17,45 @@ function CardSelecao({ s, onAbrir }) {
   return (
     <button
       onClick={() => onAbrir(s)}
-      className={`group relative p-3.5 rounded-xl text-left transition-all active:scale-[0.98] overflow-hidden ${
+      className={`group relative p-2 sm:p-3.5 rounded-xl text-left transition-all active:scale-[0.98] overflow-hidden ${
         completa
           ? 'bg-emerald-950/40 ring-1 ring-emerald-500/40'
           : 'bg-stone-900 ring-1 ring-stone-800 hover:ring-amber-500/40'
       }`}
     >
       {s.host && (
-        <span className="absolute top-2 right-2 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300">
+        <span className="absolute top-1 right-1 sm:top-2 sm:right-2 text-[8px] sm:text-[9px] font-bold uppercase tracking-wider px-1 sm:px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300">
           Host
         </span>
       )}
-      <div className="flex items-center justify-between mb-3">
-        <Bandeira emoji={s.bandeira} size={56} title={s.nome} className="rounded-md drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]" />
-        {completa && <CheckCircle2 className="w-5 h-5 text-emerald-400" />}
+      <div className="flex items-center justify-between mb-2 sm:mb-3">
+        <Bandeira emoji={s.bandeira} size={40} title={s.nome} className="rounded-md drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)] sm:!w-14 sm:!h-14" />
+        {completa && <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />}
         {s.rep > 0 && !completa && (
-          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-400/15 text-amber-400">
+          <span className="text-[8px] sm:text-[9px] font-bold px-1 sm:px-1.5 py-0.5 rounded bg-amber-400/15 text-amber-400">
             +{s.rep}
           </span>
         )}
       </div>
-      <div className="text-sm font-bold leading-tight mb-2 truncate">{s.nome}</div>
-      <div className="flex items-center gap-2">
-        <div className="flex-1 h-1.5 bg-stone-950 rounded-full overflow-hidden">
+      <div className="text-[11px] sm:text-sm font-bold leading-tight mb-1.5 sm:mb-2 truncate">{s.nome}</div>
+      <div className="flex items-center gap-1.5 sm:gap-2">
+        <div className="flex-1 h-1 sm:h-1.5 bg-stone-950 rounded-full overflow-hidden">
           <div
             className={`h-full transition-all ${completa ? 'bg-emerald-400' : 'bg-amber-400'}`}
             style={{ width: `${s.perc}%` }}
           />
         </div>
-        <span className="text-[10px] font-mono text-stone-400 tabular-nums">{s.tem}/{s.total}</span>
+        <span className="text-[9px] sm:text-[10px] font-mono text-stone-400 tabular-nums">{s.tem}/{s.total}</span>
       </div>
     </button>
   );
 }
 
-export default function ListaSelecoes({ progresso, onAbrir }) {
+export default function ListaSelecoes({ progresso, onAbrir, filtro: filtroProp, setFiltro: setFiltroProp }) {
   const [ordem, setOrdem] = useState('grupo');
-  const [filtro, setFiltro] = useState('todas'); // todas | completas | incompletas | comRepetidas
+  const [filtroLocal, setFiltroLocal] = useState('todas'); // todas | completas | incompletas | comRepetidas
+  const filtro = filtroProp ?? filtroLocal;
+  const setFiltro = setFiltroProp ?? setFiltroLocal;
 
   const totalCompletas   = useMemo(() => progresso.filter((s) => s.tem === s.total).length, [progresso]);
   const totalIncompletas = progresso.length - totalCompletas;
@@ -164,7 +166,7 @@ export default function ListaSelecoes({ progresso, onAbrir }) {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            <div className="grid grid-cols-4 gap-1.5 sm:gap-2.5">
               {lista.map((s) => <CardSelecao key={s.codigo} s={s} onAbrir={onAbrir} />)}
             </div>
           </section>

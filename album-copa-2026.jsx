@@ -13,13 +13,14 @@ import { fadeUp } from './src/lib/anims.js';
 
 import Header        from './src/components/Header.jsx';
 import Tabs          from './src/components/Tabs.jsx';
-import FAB           from './src/components/FAB.jsx';
+import ErrorBoundary from './src/components/ErrorBoundary.jsx';
 import Toasts        from './src/components/ui/Toasts.jsx';
 import Confetti      from './src/components/effects/Confetti.jsx';
 import Dashboard     from './src/components/Dashboard.jsx';
 import ListaSelecoes from './src/components/ListaSelecoes.jsx';
 import SecaoEspeciais from './src/components/SecaoEspeciais.jsx';
 import SecaoCocaCola from './src/components/SecaoCocaCola.jsx';
+import SecaoExtras from './src/components/SecaoExtras.jsx';
 import DetalhesSelecao from './src/components/DetalhesSelecao.jsx';
 import Busca         from './src/components/Busca.jsx';
 import Trocas        from './src/components/Trocas.jsx';
@@ -35,6 +36,7 @@ import Scanner       from './src/components/Scanner.jsx';
 import TelaLogin     from './src/components/TelaLogin.jsx';
 import { useAuth }   from './src/hooks/useAuth.js';
 import { SUPABASE_ENABLED } from './src/lib/supabase.js';
+import { ModoColagemProvider } from './src/contexts/ModoColagem.jsx';
 
 /* Parser de códigos colados (pacote / quickAdd). Aceita apenas PREFIX-N ou PREFIX N. */
 function parseCodigos(texto) {
@@ -56,7 +58,7 @@ export default function App() {
     colecao, meta, carregando, syncStatus,
     setMeta, inc, dec, adicionarMuitos, resetar, substituirColecao,
     sincronizarAgora,
-    stats, repetidasLista, progressoSelecoes, especiais, cocaCola,
+    stats, repetidasLista, progressoSelecoes, especiais, cocaCola, extras,
   } = useColecao(user?.id);
   const { toasts, push } = useToasts();
 
@@ -64,6 +66,7 @@ export default function App() {
   const [busca, setBusca]                 = useState('');
   const [selecaoAberta, setSelecaoAberta] = useState(null);
   const [filtroSel, setFiltroSel]         = useState('todas');
+  const [filtroAlbum, setFiltroAlbum]     = useState('todas'); // todas | completas | incompletas | comRepetidas
 
   const [mPacote, setMPacote]   = useState(false);
   const [mQuick, setMQuick]     = useState(false);
@@ -165,6 +168,16 @@ export default function App() {
     push('Configurações salvas', 'emerald');
   }, [setMeta, push]);
 
+  const handleChangeModo = useCallback((novoModo) => {
+    setMeta((m) => ({ ...m, modoColagem: novoModo }));
+    push(
+      novoModo === 'repetidas'
+        ? 'Modo Apenas repetidas ativado'
+        : 'Modo Coleção completa ativado',
+      'amber',
+    );
+  }, [setMeta, push]);
+
   const handleExportar = useCallback(() => {
     const blob = new Blob([JSON.stringify({ colecao, meta }, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -259,9 +272,15 @@ export default function App() {
     );
     if (aba === 'selecoes' && !selecaoAberta) return (
       <div className="space-y-6">
-        <SecaoEspeciais colecao={colecao} prog={especiais} onInc={handleInc} onDec={handleDec} />
-        <SecaoCocaCola colecao={colecao} prog={cocaCola} onInc={handleInc} onDec={handleDec} />
-        <ListaSelecoes progresso={progressoSelecoes} onAbrir={(s) => { sfx.tick(); setSelecaoAberta(s); }} />
+        <ListaSelecoes
+          progresso={progressoSelecoes}
+          onAbrir={(s) => { sfx.tick(); setSelecaoAberta(s); }}
+          filtro={filtroAlbum}
+          setFiltro={setFiltroAlbum}
+        />
+        <SecaoEspeciais colecao={colecao} prog={especiais} onInc={handleInc} onDec={handleDec} filtro={filtroAlbum} />
+        <SecaoCocaCola colecao={colecao} prog={cocaCola} onInc={handleInc} onDec={handleDec} filtro={filtroAlbum} />
+        <SecaoExtras colecao={colecao} prog={extras} onInc={handleInc} onDec={handleDec} filtro={filtroAlbum} />
       </div>
     );
     if (aba === 'selecoes' && selecaoAberta) return (
@@ -284,7 +303,6 @@ export default function App() {
     if (aba === 'amigos') return (
       <Amigos
         userId={user?.id}
-        meuUsername={user?.user_metadata?.username || null}
         minhaColecao={colecao}
         pushToast={push}
       />
@@ -305,6 +323,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen pb-24">
+      <ModoColagemProvider value={meta.modoColagem || 'completo'}>
       <Header
         stats={stats}
         onPacote={() => setMPacote(true)}
@@ -316,21 +335,33 @@ export default function App() {
         syncStatus={syncStatus}
         onSincronizar={sincronizarAgora}
         pushToast={push}
+        modoColagem={meta.modoColagem || 'completo'}
+        onChangeModo={handleChangeModo}
       />
       <Tabs aba={aba} setAba={(a) => { setAba(a); setSelecaoAberta(null); }} />
 
+      {meta.modoColagem === 'repetidas' && (
+        <div className="max-w-5xl mx-auto px-4 mt-3">
+          <div className="rounded-xl bg-amber-500/10 ring-1 ring-amber-400/30 px-3 py-2 text-[11px] text-amber-200 flex items-center gap-2">
+            <span className="font-bold">Modo Apenas repetidas:</span>
+            <span className="text-amber-100/80">os contadores mostram quantas você tem para troca. Não precisa marcar as coladas.</span>
+          </div>
+        </div>
+      )}
+
       <main className="max-w-5xl mx-auto px-4 py-6">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={aba + (selecaoAberta?.codigo || '')}
-            {...fadeUp}
-          >
-            {conteudo()}
-          </motion.div>
-        </AnimatePresence>
+        <ErrorBoundary resetKey={aba + (selecaoAberta?.codigo || '')}>
+          <AnimatePresence initial={false}>
+            <motion.div
+              key={aba + (selecaoAberta?.codigo || '')}
+              {...fadeUp}
+            >
+              {conteudo()}
+            </motion.div>
+          </AnimatePresence>
+        </ErrorBoundary>
       </main>
 
-      <FAB onPacote={() => setMPacote(true)} onQuick={() => setMQuick(true)} onScan={() => setMScan(true)} />
       <Toasts toasts={toasts} />
       <Confetti ref={confettiRef} />
 
@@ -350,6 +381,7 @@ export default function App() {
       <ModalConfig   aberto={mConfig}   onFechar={() => setMConfig(false)}   meta={meta} onSalvar={handleSalvarConfig} />
       <ModalAtalhos  aberto={mAtalhos}  onFechar={() => setMAtalhos(false)} />
       <ModalLogin    aberto={mLogin}    onFechar={() => setMLogin(false)} />
+      </ModoColagemProvider>
     </div>
   );
 }

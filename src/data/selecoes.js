@@ -14,7 +14,7 @@ export const SELECOES = [
   { codigo: 'SUI', nome: 'Suíça',             bandeira: '🇨🇭', grupo: 'B' },
   // Grupo C
   { codigo: 'BRA', nome: 'Brasil',            bandeira: '🇧🇷', grupo: 'C' },
-  { codigo: 'SCO', nome: 'Escócia',           bandeira: '🏴',   grupo: 'C' },
+  { codigo: 'SCO', nome: 'Escócia',           bandeira: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', grupo: 'C' },
   { codigo: 'HAI', nome: 'Haiti',             bandeira: '🇭🇹', grupo: 'C' },
   { codigo: 'MAR', nome: 'Marrocos',          bandeira: '🇲🇦', grupo: 'C' },
   // Grupo D
@@ -60,14 +60,15 @@ export const SELECOES = [
   // Grupo L
   { codigo: 'CRO', nome: 'Croácia',           bandeira: '🇭🇷', grupo: 'L' },
   { codigo: 'GHA', nome: 'Gana',              bandeira: '🇬🇭', grupo: 'L' },
-  { codigo: 'ENG', nome: 'Inglaterra',        bandeira: '🏴',   grupo: 'L' },
+  { codigo: 'ENG', nome: 'Inglaterra',        bandeira: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', grupo: 'L' },
   { codigo: 'PAN', nome: 'Panamá',            bandeira: '🇵🇦', grupo: 'L' },
 ];
 
 export const FIGURINHAS_POR_SELECAO = 20;          // padrão oficial Panini 2026 (1 escudo + 1 foto da equipe + 18 jogadores)
-export const TOTAL_ESPECIAIS        = 19;          // FWC-1 .. FWC-19
+export const TOTAL_ESPECIAIS        = 20;          // FWC-00 .. FWC-19
 export const TOTAL_CC               = 14;          // CC-1  .. CC-14
-export const TOTAL_FIGURINHAS       = TOTAL_ESPECIAIS + TOTAL_CC + SELECOES.length * FIGURINHAS_POR_SELECAO; // 19+14+960 = 993
+export const TOTAL_EXTRAS           = 4;           // REGU-1, BRO-1, PRA-1, OURO-1
+export const TOTAL_FIGURINHAS       = TOTAL_ESPECIAIS + TOTAL_CC + TOTAL_EXTRAS + SELECOES.length * FIGURINHAS_POR_SELECAO; // 20+14+4+960 = 998
 export const FIGURINHAS_POR_PACOTE  = 7;
 export const STORAGE_KEY            = 'album-copa-2026.v2';
 

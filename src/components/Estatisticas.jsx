@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import {
   CheckCircle2, AlertCircle, Repeat2, Package,
-  TrendingUp, Target, BarChart3, Award, Settings,
+  TrendingUp, BarChart3, Award, Settings,
   Download, Upload, X,
 } from 'lucide-react';
 import KpiCard from './ui/KpiCard.jsx';
@@ -18,9 +18,6 @@ export default function Estatisticas({
   const parciais     = progresso.filter((s) => s.tem > 0 && s.tem < s.total).length;
   const naoIniciadas = progresso.filter((s) => s.tem === 0).length;
   const ranking      = [...progresso].sort((a, b) => b.perc - a.perc || b.tem - a.tem);
-  const figurinhasFaltam      = TOTAL_FIGURINHAS - stats.distintas;
-  const pacotesEstimadosFalta = Math.ceil(figurinhasFaltam / 1.7);
-  const custoEstimadoFalta    = pacotesEstimadosFalta * (meta.precoPacote || 0);
 
   const porGrupo = useMemo(() => {
     const m = {};
@@ -51,25 +48,6 @@ export default function Estatisticas({
           <LinhaStat label="Especiais"          valor={`${especiais.tem} / ${especiais.total}`} cor="amber" />
           <LinhaStat label="Total colado"       valor={fmtNum(stats.totalColadas)} cor="indigo" />
           <LinhaStat label="Progresso geral"    valor={`${stats.percentual.toFixed(1)}%`} cor="amber" />
-        </div>
-      </PainelGlass>
-
-      <PainelGlass titulo="QUANTO FALTA PARA TERMINAR" icon={Target}>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="bg-stone-900 rounded-xl p-3">
-            <div className="text-[9px] tracking-widest text-stone-500 font-bold">FIGURINHAS</div>
-            <div className="text-2xl font-black text-rose-400">{fmtNum(figurinhasFaltam)}</div>
-          </div>
-          <div className="bg-stone-900 rounded-xl p-3">
-            <div className="text-[9px] tracking-widest text-stone-500 font-bold">PACOTES (EST.)</div>
-            <div className="text-2xl font-black text-amber-400">~ {fmtNum(pacotesEstimadosFalta)}</div>
-            <div className="text-[10px] text-stone-500">média 1,7 novas/pacote</div>
-          </div>
-          <div className="bg-stone-900 rounded-xl p-3">
-            <div className="text-[9px] tracking-widest text-stone-500 font-bold">CUSTO (EST.)</div>
-            <div className="text-2xl font-black text-emerald-400">R$ {fmtNum(custoEstimadoFalta)}</div>
-            <div className="text-[10px] text-stone-500">com R$ {meta.precoPacote || 0}/pacote</div>
-          </div>
         </div>
       </PainelGlass>
 

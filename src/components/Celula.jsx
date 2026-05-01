@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Sparkles from './effects/Sparkles.jsx';
 import { sfx, sfxState } from '../lib/sfx.js';
+import { useModoColagem } from '../contexts/ModoColagem.jsx';
 
 /**
  * Célula compacta (grids tipo heatmap / especiais).
@@ -10,6 +11,8 @@ import { sfx, sfxState } from '../lib/sfx.js';
 export default function Celula({ numero, qtd, onInc, onDec, emoji, titulo }) {
   const timer = useRef(null);
   const [burst, setBurst] = useState(0);
+  const modo = useModoColagem();
+  const repetidasOnly = modo === 'repetidas';
 
   const inc = () => { sfxState.unlock(); qtd === 0 ? sfx.pop() : sfx.cling(); setBurst((b) => b + 1); onInc(); };
   const dec = () => { sfxState.unlock(); sfx.blop(); onDec(); };
@@ -19,9 +22,14 @@ export default function Celula({ numero, qtd, onInc, onDec, emoji, titulo }) {
   const handleLeave = () => { if (timer.current) { clearTimeout(timer.current); timer.current = null; } };
 
   const tem = qtd > 0;
-  const cor = qtd > 1 ? 'bg-amber-400 text-stone-950 ring-amber-300'
-            : tem      ? 'bg-emerald-500 text-stone-950 ring-emerald-400'
-                       : 'bg-stone-800/80 text-stone-500 ring-stone-700';
+  const isRepBadge = repetidasOnly ? tem : qtd > 1;
+  const cor = repetidasOnly
+    ? (tem ? 'bg-amber-400 text-stone-950 ring-amber-300' : 'bg-stone-800/80 text-stone-500 ring-stone-700')
+    : qtd > 1 ? 'bg-amber-400 text-stone-950 ring-amber-300'
+              : tem      ? 'bg-emerald-500 text-stone-950 ring-emerald-400'
+                         : 'bg-stone-800/80 text-stone-500 ring-stone-700';
+  const badgeQtd = repetidasOnly ? qtd : qtd;
+  const showBadge = repetidasOnly ? qtd > 0 : qtd > 1;
 
   return (
     <motion.button
@@ -41,9 +49,9 @@ export default function Celula({ numero, qtd, onInc, onDec, emoji, titulo }) {
           {numero}
         </span>
       )}
-      {qtd > 1 && (
+      {showBadge && (
         <span className="absolute -top-1 -right-1 text-[8px] bg-stone-950 text-amber-400 rounded-full px-1 ring-1 ring-amber-400">
-          ×{qtd}
+          ×{badgeQtd}
         </span>
       )}
       <AnimatePresence>

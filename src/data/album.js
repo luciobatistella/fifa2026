@@ -18,24 +18,34 @@ export const ALBUM_META = {
 
 // Mapa prefix -> grupo (taxonomia oficial)
 export const GROUP_OF_PREFIX = {
-  FWC: 'fifa',
-  CC:  'cocacola',
+  FWC:  'fifa',
+  CC:   'cocacola',
+  REGU: 'extras',
+  BRO:  'extras',
+  PRA:  'extras',
+  OURO: 'extras',
   ...Object.fromEntries(SELECOES.map((s) => [s.codigo, 'teams'])),
 };
 
 // Quantidades-padrão
-export const FWC_RANGE       = { start: 1, end: 19 };  // 19 figurinhas FIFA / Especiais
+export const FWC_RANGE       = { start: 0, end: 19 };  // 20 figurinhas FIFA / Especiais (FWC-00 .. FWC-19)
 export const CC_RANGE        = { start: 1, end: 14 };  // 14 figurinhas Coca-Cola
 export const TEAM_RANGE      = { start: 1, end: 20 };  // 20 figurinhas por seleção
 export const STICKERS_PER_TEAM = TEAM_RANGE.end;       // 20
-export const FWC_TOTAL         = FWC_RANGE.end;        // 19
+export const FWC_TOTAL         = FWC_RANGE.end - FWC_RANGE.start + 1; // 20
 export const CC_TOTAL          = CC_RANGE.end;         // 14
-export const TOTAL_STICKERS    = FWC_TOTAL + CC_TOTAL + SELECOES.length * STICKERS_PER_TEAM; // 19+14+960 = 993
+export const EXTRAS_PREFIXES   = ['REGU', 'BRO', 'PRA', 'OURO'];
+export const EXTRAS_TOTAL      = EXTRAS_PREFIXES.length; // 4
+export const TOTAL_STICKERS    = FWC_TOTAL + CC_TOTAL + EXTRAS_TOTAL + SELECOES.length * STICKERS_PER_TEAM; // 20+14+4+960 = 998
 
 // Definição de grupos (compatível com o JSON enviado pelo cliente)
 export const GROUPS = {
-  FWC: { name: 'FIFA / Especiais', range: FWC_RANGE },
-  CC:  { name: 'Coca-Cola',        range: CC_RANGE  },
+  FWC:  { name: 'FIFA / Especiais', range: FWC_RANGE },
+  CC:   { name: 'Coca-Cola',        range: CC_RANGE  },
+  REGU: { name: 'Extra Regular',    range: { start: 1, end: 1 } },
+  BRO:  { name: 'Extra Bronze',     range: { start: 1, end: 1 } },
+  PRA:  { name: 'Extra Prata',      range: { start: 1, end: 1 } },
+  OURO: { name: 'Extra Ouro',       range: { start: 1, end: 1 } },
   ...Object.fromEntries(SELECOES.map((s) => [s.codigo, { name: s.nome, range: TEAM_RANGE }])),
 };
 
@@ -93,10 +103,12 @@ export function buildSticker(id, colecao = {}) {
   };
 }
 
-/** Lista todos os ids do álbum em ordem canônica (FWC primeiro, depois seleções). */
+/** Lista todos os ids do álbum em ordem canônica (FWC, CC, EXTRAS, depois seleções). */
 export function listAllIds() {
   const ids = [];
   for (let n = FWC_RANGE.start; n <= FWC_RANGE.end; n++) ids.push(`FWC-${n}`);
+  for (let n = CC_RANGE.start;  n <= CC_RANGE.end;  n++) ids.push(`CC-${n}`);
+  for (const px of EXTRAS_PREFIXES) ids.push(`${px}-1`);
   for (const s of SELECOES) {
     for (let n = TEAM_RANGE.start; n <= TEAM_RANGE.end; n++) ids.push(`${s.codigo}-${n}`);
   }

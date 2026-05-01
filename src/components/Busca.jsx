@@ -35,7 +35,7 @@ export default function Busca({ busca, setBusca, colecao, onInc, onDec }) {
 
     // Por "FWC" / "ESP" (alias)
     if ('ESPECIAIS FWC FIFA'.includes(buscaUpper) || buscaUpper === 'ESP' || buscaUpper === 'FWC') {
-      for (let i = 1; i <= TOTAL_ESPECIAIS; i++) {
+      for (let i = 0; i < TOTAL_ESPECIAIS; i++) {
         const id = `FWC-${i}`;
         if (!r.some((x) => x.id === id)) r.push({ id, info: rotuloFigurinha(id), numero: i });
       }

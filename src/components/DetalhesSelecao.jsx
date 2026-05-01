@@ -14,7 +14,7 @@ const FILTROS = [
 ];
 
 export default function DetalhesSelecao({ selecao, colecao, filtro, setFiltro, onInc, onDec, onVoltar }) {
-  const [vista, setVista] = useState('lista');
+  const [vista, setVista] = useState('grade');
   let tem = 0, rep = 0;
   for (let i = 1; i <= FIGURINHAS_POR_SELECAO; i++) {
     const q = colecao[`${selecao.codigo}-${i}`] || 0;
@@ -62,27 +62,33 @@ export default function DetalhesSelecao({ selecao, colecao, filtro, setFiltro, o
       </button>
 
       {/* Header da seleção */}
-      <div className="relative overflow-hidden rounded-2xl ring-1 ring-stone-800 bg-gradient-to-br from-stone-900 to-stone-950 p-6 mb-4">
-        <div className="absolute -right-12 -top-16 opacity-[0.07] select-none pointer-events-none">
-          <Bandeira emoji={selecao.bandeira} size={280} />
+      <div className="relative overflow-hidden rounded-2xl p-6 mb-4 min-h-[180px] bg-stone-950">
+        {/* Bandeira como background expandido */}
+        <div className="absolute inset-0 select-none pointer-events-none overflow-hidden">
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 opacity-40 blur-[2px]">
+            <Bandeira emoji={selecao.bandeira} size={600} />
+          </div>
+          <div className="absolute inset-0 bg-gradient-to-r from-stone-950/95 via-stone-950/70 to-stone-950/40" />
+          <div className="absolute inset-0 bg-gradient-to-t from-stone-950/90 via-transparent to-stone-950/30" />
         </div>
+
         <div className="relative flex items-center gap-5">
-          <Bandeira emoji={selecao.bandeira} size={88} title={selecao.nome} className="rounded-lg drop-shadow-[0_8px_24px_rgba(0,0,0,0.6)] ring-1 ring-stone-700" />
+          <Bandeira emoji={selecao.bandeira} size={88} title={selecao.nome} className="drop-shadow-[0_8px_24px_rgba(0,0,0,0.8)]" />
           <div className="min-w-0">
-            <div className="text-[10px] tracking-[0.25em] text-amber-400 font-bold">GRUPO {selecao.grupo}</div>
-            <div className="text-2xl sm:text-3xl font-black leading-tight">{selecao.nome}</div>
-            <div className="text-[10px] text-stone-500 mt-0.5">{FIGURINHAS_POR_SELECAO} figurinhas • Escudo + Foto da Equipe + 18 jogadores</div>
+            <div className="text-[10px] tracking-[0.25em] text-amber-400 font-bold drop-shadow">GRUPO {selecao.grupo}</div>
+            <div className="text-2xl sm:text-3xl font-black leading-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">{selecao.nome}</div>
+            <div className="text-[10px] text-stone-300 mt-0.5 drop-shadow">{FIGURINHAS_POR_SELECAO} figurinhas • Escudo + Foto da Equipe + 18 jogadores</div>
           </div>
           <div className="ml-auto text-right shrink-0">
-            <div className="text-3xl sm:text-4xl font-black text-amber-400 leading-none tabular-nums">
-              {tem}<span className="text-stone-600 text-2xl">/{FIGURINHAS_POR_SELECAO}</span>
+            <div className="text-3xl sm:text-4xl font-black text-amber-400 leading-none tabular-nums drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
+              {tem}<span className="text-stone-400 text-2xl">/{FIGURINHAS_POR_SELECAO}</span>
             </div>
-            <div className="text-xs text-stone-400 mt-1">
+            <div className="text-xs text-stone-300 mt-1 drop-shadow">
               {perc.toFixed(0)}%{rep > 0 && <span className="text-emerald-400"> • +{rep} rep.</span>}
             </div>
           </div>
         </div>
-        <div className="relative mt-4 h-2 bg-stone-950 rounded-full overflow-hidden ring-1 ring-stone-800">
+        <div className="relative mt-4 h-2 bg-stone-950/70 rounded-full overflow-hidden ring-1 ring-white/10 backdrop-blur-sm">
           <div
             className="h-full bg-gradient-to-r from-amber-400 to-emerald-400 transition-all duration-500"
             style={{ width: `${perc}%` }}

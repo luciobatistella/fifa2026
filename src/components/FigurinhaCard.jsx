@@ -4,6 +4,7 @@ import { Plus, Minus, Star } from 'lucide-react';
 import Sparkles from './effects/Sparkles.jsx';
 import Bandeira from './ui/Bandeira.jsx';
 import { sfx, sfxState } from '../lib/sfx.js';
+import { useModoColagem } from '../contexts/ModoColagem.jsx';
 
 /**
  * Card grande de figurinha (com nome, número, contador).
@@ -11,12 +12,16 @@ import { sfx, sfxState } from '../lib/sfx.js';
  */
 export default function FigurinhaCard({ id, numero, rotulo, info, qtd, onInc, onDec, destaque }) {
   const [burst, setBurst] = useState(0);
+  const modo = useModoColagem();
+  const repetidasOnly = modo === 'repetidas';
   const tem      = qtd > 0;
   const repetida = qtd > 1;
-  const stateClass = tem
-    ? repetida ? 'bg-amber-950/30 ring-amber-500/40'
-               : 'bg-emerald-950/30 ring-emerald-500/40'
-    : 'bg-stone-900/70 ring-stone-800';
+  const stateClass = repetidasOnly
+    ? (tem ? 'bg-amber-950/30 ring-amber-500/40' : 'bg-stone-900/70 ring-stone-800')
+    : tem
+      ? repetida ? 'bg-amber-950/30 ring-amber-500/40'
+                 : 'bg-emerald-950/30 ring-emerald-500/40'
+      : 'bg-stone-900/70 ring-stone-800';
 
   const handleInc = () => {
     sfxState.unlock();
@@ -67,9 +72,17 @@ export default function FigurinhaCard({ id, numero, rotulo, info, qtd, onInc, on
           <div className="text-[10px] text-stone-500 truncate">{info.sub}</div>
         )}
         <div className="text-xs text-stone-400">
-          {qtd === 0 && <span>Não tenho</span>}
-          {qtd === 1 && <span className="text-emerald-400 font-semibold">Tenho ✓</span>}
-          {qtd > 1  && <span className="text-amber-400 font-semibold">Tenho • {qtd - 1} repetida{qtd - 1 > 1 ? 's' : ''}</span>}
+          {repetidasOnly ? (
+            qtd === 0
+              ? <span>Nenhuma para troca</span>
+              : <span className="text-amber-400 font-semibold">{qtd} para troca</span>
+          ) : (
+            <>
+              {qtd === 0 && <span>Não tenho</span>}
+              {qtd === 1 && <span className="text-emerald-400 font-semibold">Tenho ✓</span>}
+              {qtd > 1  && <span className="text-amber-400 font-semibold">Tenho • {qtd - 1} repetida{qtd - 1 > 1 ? 's' : ''}</span>}
+            </>
+          )}
         </div>
       </div>
 

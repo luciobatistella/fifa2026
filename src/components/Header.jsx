@@ -41,7 +41,7 @@ function Avatar({ user, size = 36 }) {
   );
 }
 
-export default function Header({ stats, onPacote, onQuick, onConfig, onScan, onLogin, colecao, syncStatus, onSincronizar, pushToast }) {
+export default function Header({ stats, onPacote, onQuick, onConfig, onScan, onLogin, colecao, syncStatus, onSincronizar, pushToast, modoColagem, onChangeModo }) {
   const { user, enabled } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -59,10 +59,10 @@ export default function Header({ stats, onPacote, onQuick, onConfig, onScan, onL
 
   return (
     <header className="relative border-b border-amber-500/20 overflow-hidden">
-      {/* halos */}
+      {/* halos — blur reduzido para não afundar GPU no Safari */}
       <div className="absolute inset-0 bg-gradient-to-b from-amber-500/8 via-transparent to-transparent" />
-      <div className="absolute -top-32 -left-20 w-72 h-72 rounded-full bg-amber-500/15 blur-3xl" />
-      <div className="absolute -top-32 right-0 w-72 h-72 rounded-full bg-emerald-500/10 blur-3xl" />
+      <div className="absolute -top-32 -left-20 w-72 h-72 rounded-full bg-amber-500/15 blur-2xl" />
+      <div className="absolute -top-32 right-0 w-72 h-72 rounded-full bg-emerald-500/10 blur-2xl" />
       <div className="absolute inset-0 bg-pitch opacity-40" />
 
       <div className="relative max-w-5xl mx-auto px-4 py-7">
@@ -132,13 +132,15 @@ export default function Header({ stats, onPacote, onQuick, onConfig, onScan, onL
           initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ ...spring, delay: 0.1 }}
           className="mt-6"
         >
-          <div className="relative h-3 bg-stone-900/80 rounded-full overflow-hidden ring-1 ring-stone-800 backdrop-blur">
+          <div className="relative h-3 bg-stone-900/80 rounded-full overflow-hidden ring-1 ring-stone-800">
             <motion.div
-              className="h-full rounded-full"
-              initial={{ width: 0 }}
-              animate={{ width: `${stats.percentual}%` }}
+              className="h-full rounded-full will-change-transform"
+              initial={{ transform: 'scaleX(0)' }}
+              animate={{ transform: `scaleX(${Math.max(0, Math.min(1, stats.percentual / 100))})` }}
               transition={{ type: 'spring', stiffness: 60, damping: 18 }}
               style={{
+                width: '100%',
+                transformOrigin: 'left center',
                 background: 'linear-gradient(90deg,#f59e0b 0%,#fbbf24 50%,#10b981 100%)',
                 boxShadow: '0 0 22px rgba(245,158,11,0.55), inset 0 0 8px rgba(255,255,255,0.25)',
               }}
@@ -163,6 +165,8 @@ export default function Header({ stats, onPacote, onQuick, onConfig, onScan, onL
         syncStatus={syncStatus}
         onSincronizar={onSincronizar}
         pushToast={pushToast}
+        modoColagem={modoColagem}
+        onChangeModo={onChangeModo}
       />
     </header>
   );

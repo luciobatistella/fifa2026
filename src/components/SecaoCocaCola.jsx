@@ -4,8 +4,15 @@ import { ChevronRight } from 'lucide-react';
 import Celula from './Celula.jsx';
 import { CATEGORIAS_CC, infoCocaCola } from '../data/especiais.js';
 
-export default function SecaoCocaCola({ colecao, prog, onInc, onDec }) {
+export default function SecaoCocaCola({ colecao, prog, onInc, onDec, filtro = 'todas' }) {
   const [aberto, setAberto] = useState(true);
+
+  const matchFiltro = (qtd) => {
+    if (filtro === 'completas')    return qtd >= 1;
+    if (filtro === 'incompletas')  return qtd === 0;
+    if (filtro === 'comRepetidas') return qtd > 1;
+    return true;
+  };
 
   return (
     <div className="rounded-2xl overflow-hidden ring-1 ring-red-500/30 bg-gradient-to-br from-red-950/40 via-stone-950 to-stone-950">
@@ -44,8 +51,10 @@ export default function SecaoCocaCola({ colecao, prog, onInc, onDec }) {
             <div className="px-4 pb-4 space-y-4">
               {CATEGORIAS_CC.map((cat) => {
                 const [a, b] = cat.range;
-                const itens = Array.from({ length: b - a + 1 }, (_, k) => a + k);
-                const tem = itens.filter((i) => (colecao[`CC-${i + 1}`] || 0) > 0).length;
+                const itensTodos = Array.from({ length: b - a + 1 }, (_, k) => a + k);
+                const itens = itensTodos.filter((i) => matchFiltro(colecao[`CC-${i + 1}`] || 0));
+                const tem = itensTodos.filter((i) => (colecao[`CC-${i + 1}`] || 0) > 0).length;
+                if (itens.length === 0) return null;
                 return (
                   <div key={cat.id} className={`rounded-xl ring-1 bg-gradient-to-br ${cat.cor} p-3`}>
                     <div className="flex items-center justify-between mb-2">
@@ -57,7 +66,7 @@ export default function SecaoCocaCola({ colecao, prog, onInc, onDec }) {
                         </div>
                       </div>
                       <div className="font-mono text-sm font-bold text-stone-200">
-                        {tem}<span className="text-stone-500">/{itens.length}</span>
+                        {tem}<span className="text-stone-500">/{itensTodos.length}</span>
                       </div>
                     </div>
                     <div className="grid grid-cols-7 sm:grid-cols-10 md:grid-cols-14 gap-1.5">
@@ -69,7 +78,6 @@ export default function SecaoCocaCola({ colecao, prog, onInc, onDec }) {
                           <Celula
                             key={id}
                             numero={i + 1}
-                            emoji={info.emoji}
                             titulo={`${info.nome} · CC ${i + 1}`}
                             qtd={qtd}
                             onInc={() => onInc(id)}

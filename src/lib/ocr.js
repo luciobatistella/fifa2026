@@ -24,9 +24,7 @@ export function getOCRWorker() {
     const w = await createWorker('eng', 1);
     await w.setParameters({
       tessedit_char_whitelist: ALLOWED_CHARS,
-      // PSM.SPARSE_TEXT tolera texto parcial, rotacionado leve e multi-linha,
-      // muito melhor que SINGLE_LINE para figurinhas embaçadas/inclinadas.
-      tessedit_pageseg_mode: PSM.SPARSE_TEXT,
+      tessedit_pageseg_mode: PSM.SINGLE_LINE,
       preserve_interword_spaces: '1',
     });
     initialized = true;

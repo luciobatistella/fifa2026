@@ -3,16 +3,17 @@ import { storage } from '../lib/storage.js';
 import {
   SELECOES, FIGURINHAS_POR_SELECAO, TOTAL_FIGURINHAS, FIGURINHAS_POR_PACOTE, STORAGE_KEY,
 } from '../data/selecoes.js';
-import { progressoSelecao, progressoEspeciais, progressoCocaCola, rotuloFigurinha } from '../lib/figurinhas.js';
+import { progressoSelecao, progressoEspeciais, progressoCocaCola, progressoExtras, rotuloFigurinha } from '../lib/figurinhas.js';
 import { parseId } from '../data/album.js';
 import { pullCollection, pushCollection } from '../lib/sync.js';
 import { SUPABASE_ENABLED } from '../lib/supabase.js';
 
 export function useColecao(userId) {
-  const storageKey = userId ? `${STORAGE_KEY}:${userId}` : STORAGE_KEY;
+  const storageKey   = userId ? `${STORAGE_KEY}:${userId}` : STORAGE_KEY;
+  const baselineKey  = userId ? `${STORAGE_KEY}:${userId}:baseline` : null;
 
   const [colecao, setColecao]       = useState({});
-  const [meta, setMeta]             = useState({ precoPacote: 5, criadoEm: null });
+  const [meta, setMeta]             = useState({ precoPacote: 7, criadoEm: null, modoColagem: 'completo' });
   const [carregando, setCarregando] = useState(true);
   // 'idle' | 'syncing' | 'error' | 'offline'
   const [syncStatus, setSyncStatus] = useState(SUPABASE_ENABLED && userId ? 'syncing' : 'idle');
@@ -25,7 +26,7 @@ export function useColecao(userId) {
   // Load — recarrega sempre que o usuário muda
   useEffect(() => {
     setColecao({});
-    setMeta({ precoPacote: 5, criadoEm: null });
+    setMeta({ precoPacote: 7, criadoEm: null, modoColagem: 'completo' });
     setCarregando(true);
     initialSyncDoneRef.current = false;
     setSyncStatus(SUPABASE_ENABLED && userId ? 'syncing' : 'idle');
@@ -50,7 +51,7 @@ export function useColecao(userId) {
     storage.set(storageKey, JSON.stringify({ colecao, meta, savedAt: new Date().toISOString() }));
   }, [colecao, meta, carregando, storageKey]);
 
-  // Sync inicial: pull remoto + merge (max) ao logar
+  // Sync inicial: pull remoto + merge 3-vias (baseline) ao logar
   useEffect(() => {
     if (carregando) return;
     if (!SUPABASE_ENABLED || !userId) {
@@ -63,18 +64,53 @@ export function useColecao(userId) {
     setSyncStatus('syncing');
     (async () => {
       try {
-        const remote = await pullCollection(userId);
+        const remote = (await pullCollection(userId)) || {};
         if (cancelled) return;
         const local = colecaoRef.current || {};
-        const merged = { ...(remote || {}) };
-        for (const [id, q] of Object.entries(local)) {
-          merged[id] = Math.max(merged[id] || 0, q);
+
+        // Carrega baseline (último estado conhecido do servidor).
+        let baseline = null;
+        try {
+          const rawBase = baselineKey ? await storage.get(baselineKey) : null;
+          if (rawBase) baseline = JSON.parse(rawBase);
+        } catch (_) {}
+
+        let merged;
+        if (baseline && typeof baseline === 'object') {
+          // Merge 3-vias: se local mudou em relação à baseline, vence local
+          // (preserva remoções do usuário). Caso contrário, aceita remote.
+          merged = {};
+          const allIds = new Set([
+            ...Object.keys(local),
+            ...Object.keys(remote),
+            ...Object.keys(baseline),
+          ]);
+          for (const id of allIds) {
+            const l = local[id]     || 0;
+            const r = remote[id]    || 0;
+            const b = baseline[id]  || 0;
+            const v = (l !== b) ? l : r; // edição local prevalece
+            if (v > 0) merged[id] = v;
+          }
+        } else if (Object.keys(local).length === 0) {
+          // Device novo / sem dados locais → adota o remoto.
+          merged = { ...remote };
+        } else {
+          // Sem baseline, mas há dados locais: confia no local.
+          // (Save local é imediato; remote pode estar atrasado por debounce.)
+          // Isso preserva remoções feitas antes desta versão.
+          merged = { ...local };
         }
+
         const localStr  = JSON.stringify(local);
         const mergedStr = JSON.stringify(merged);
-        const remoteStr = JSON.stringify(remote || {});
+        const remoteStr = JSON.stringify(remote);
         if (mergedStr !== localStr) setColecao(merged);
         if (mergedStr !== remoteStr) await pushCollection(userId, merged);
+        // Atualiza baseline para refletir o estado agora canônico no servidor.
+        if (baselineKey) {
+          try { await storage.set(baselineKey, mergedStr); } catch (_) {}
+        }
         if (cancelled) return;
         initialSyncDoneRef.current = true;
         setSyncStatus('idle');
@@ -83,7 +119,7 @@ export function useColecao(userId) {
       }
     })();
     return () => { cancelled = true; };
-  }, [carregando, userId]);
+  }, [carregando, userId, baselineKey]);
 
   // Push automático (debounce) quando a coleção muda
   useEffect(() => {
@@ -94,26 +130,35 @@ export function useColecao(userId) {
     setSyncStatus('syncing');
     pushTimerRef.current = setTimeout(async () => {
       try {
-        await pushCollection(userId, colecaoRef.current);
+        const snapshot = colecaoRef.current;
+        await pushCollection(userId, snapshot);
+        // Baseline = o que acabou de ir para o servidor.
+        if (baselineKey) {
+          try { await storage.set(baselineKey, JSON.stringify(snapshot)); } catch (_) {}
+        }
         setSyncStatus('idle');
       } catch (_) {
         setSyncStatus('error');
       }
     }, 1500);
     return () => { if (pushTimerRef.current) clearTimeout(pushTimerRef.current); };
-  }, [colecao, userId, carregando]);
+  }, [colecao, userId, carregando, baselineKey]);
 
   // Retry manual de sincronização
   const sincronizarAgora = useCallback(async () => {
     if (!SUPABASE_ENABLED || !userId) return;
     setSyncStatus('syncing');
     try {
-      await pushCollection(userId, colecaoRef.current);
+      const snapshot = colecaoRef.current;
+      await pushCollection(userId, snapshot);
+      if (baselineKey) {
+        try { await storage.set(baselineKey, JSON.stringify(snapshot)); } catch (_) {}
+      }
       setSyncStatus('idle');
     } catch (_) {
       setSyncStatus('error');
     }
-  }, [userId]);
+  }, [userId, baselineKey]);
 
   // Mutations
   const setQtd = useCallback((id, qtd) => {
@@ -171,6 +216,7 @@ export function useColecao(userId) {
 
   const especiais = useMemo(() => progressoEspeciais(colecao), [colecao]);
   const cocaCola  = useMemo(() => progressoCocaCola(colecao), [colecao]);
+  const extras    = useMemo(() => progressoExtras(colecao), [colecao]);
 
   return {
     // state
@@ -181,7 +227,7 @@ export function useColecao(userId) {
     setQtd, inc, dec, adicionarMuitos, resetar, substituirColecao,
     sincronizarAgora,
     // derived
-    stats, repetidasLista, progressoSelecoes, especiais, cocaCola,
+    stats, repetidasLista, progressoSelecoes, especiais, cocaCola, extras,
   };
 }
 

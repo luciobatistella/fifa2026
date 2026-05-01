@@ -4,37 +4,34 @@
 //  CC : 14 figurinhas (CC-1  .. CC-14 ), indexadas 0-based internamente.
 // =============================================================================
 
+// Ícones e nomes individuais por número FWC (FWC-00 .. FWC-19).
+// FWC-00 = capa; FWC-01, FWC-02 = logo oficial; FWC-03 = mascote; FWC-04 = a confirmar;
+// FWC-05 = bola oficial; FWC-06 .. FWC-19 = estádios sede.
+const FWC_ICONES = [
+  '📕',
+  '🏆', '🏆', '🦅', '✨', '⚽',
+  '🏟️', '🏟️', '🏟️', '🏟️', '🏟️',
+  '🏟️', '🏟️', '🏟️', '🏟️', '🏟️',
+  '🏟️', '🏟️', '🏟️', '🏟️',
+];
+
+const FWC_NOMES = [
+  'Capa do Álbum',
+  'Logo Oficial', 'Logo Oficial', 'Mascote Oficial', 'Especial', 'Bola Oficial',
+  'Estádio', 'Estádio', 'Estádio', 'Estádio', 'Estádio',
+  'Estádio', 'Estádio', 'Estádio', 'Estádio', 'Estádio',
+  'Estádio', 'Estádio', 'Estádio', 'Estádio',
+];
+
 export const CATEGORIAS_ESPECIAIS = [
   {
-    id: 'logos',
-    nome: 'Logos & Identidade',
-    emoji: '🏆',
+    id: 'especiais',
+    nome: 'Figurinhas Especiais',
+    emoji: '✨',
     cor: 'from-amber-500/20 to-yellow-600/10 ring-amber-400/40',
-    range: [0, 5],   // FWC-1 .. FWC-6
-    icones: ['🏆', '⚽', '🏅', '🎖️', '📛', '🔰'],
-    nomes: ['Troféu da Copa', 'Logo Oficial', 'Logo Panini', 'Emblema FIFA', 'Pôster Oficial', 'Bandeira FIFA'],
-  },
-  {
-    id: 'mascotes',
-    nome: 'Mascotes Oficiais',
-    emoji: '🦅',
-    cor: 'from-rose-500/20 to-orange-500/10 ring-rose-400/40',
-    range: [6, 8],   // FWC-7 .. FWC-9
-    icones: ['🦅', '🦌', '🐆'],
-    nomes: ['Maple (Canadá)', 'Zayu (México)', 'Clutch (EUA)'],
-  },
-  {
-    id: 'estadios',
-    nome: 'Estádios da Copa',
-    emoji: '🏟️',
-    cor: 'from-emerald-500/20 to-teal-600/10 ring-emerald-400/40',
-    range: [9, 18],  // FWC-10 .. FWC-19 (10 estádios sede)
-    icones: Array(10).fill('🏟️'),
-    nomes: [
-      'MetLife (NJ)', 'SoFi (LA)', 'AT&T (Dallas)', 'NRG (Houston)',
-      'Mercedes-Benz (Atlanta)', 'Hard Rock (Miami)', 'Arrowhead (Kansas)',
-      'Lincoln Financial (Filadélfia)', 'Lumen (Seattle)', 'Levi\'s (S. Francisco)',
-    ],
+    range: [0, 19],  // FWC-00 .. FWC-19
+    icones: FWC_ICONES,
+    nomes: FWC_NOMES,
   },
 ];
 
@@ -69,6 +66,52 @@ export function infoEspecial(idx) {
     }
   }
   return { categoria: null, emoji: '⭐', nome: `FWC #${idx + 1}`, numeroLocal: idx + 1 };
+}
+
+// =============================================================================
+//  Catálogo das 4 figurinhas EXTRAS (raras): REGU, BRONZE, PRATA, OURO.
+//  Cada uma tem prefixo próprio e número 1 (REGU-1, BRO-1, PRA-1, OURO-1).
+// =============================================================================
+export const CATEGORIAS_EXTRAS = [
+  {
+    id: 'regular',
+    prefix: 'REGU',
+    nome: 'Regular',
+    emoji: '⚪',
+    cor: 'from-stone-500/20 to-stone-700/10 ring-stone-400/40',
+    badgeCor: 'text-stone-300',
+  },
+  {
+    id: 'bronze',
+    prefix: 'BRO',
+    nome: 'Bronze',
+    emoji: '🥉',
+    cor: 'from-amber-700/30 to-orange-900/10 ring-amber-700/40',
+    badgeCor: 'text-amber-500',
+  },
+  {
+    id: 'prata',
+    prefix: 'PRA',
+    nome: 'Prata',
+    emoji: '🥈',
+    cor: 'from-slate-300/20 to-slate-500/10 ring-slate-300/40',
+    badgeCor: 'text-slate-200',
+  },
+  {
+    id: 'ouro',
+    prefix: 'OURO',
+    nome: 'Ouro',
+    emoji: '🥇',
+    cor: 'from-yellow-400/30 to-amber-600/10 ring-yellow-400/50',
+    badgeCor: 'text-yellow-300',
+  },
+];
+
+/** Dado um prefix de extra (REGU/BRO/PRA/OURO), retorna { categoria, emoji, nome }. */
+export function infoExtra(prefix) {
+  const cat = CATEGORIAS_EXTRAS.find((c) => c.prefix === prefix);
+  if (!cat) return { categoria: null, emoji: '✨', nome: prefix };
+  return { categoria: cat, emoji: cat.emoji, nome: cat.nome };
 }
 
 // Helper: dado o índice 0-indexed (0..13), retorna { categoria, emoji, nome, numeroLocal }

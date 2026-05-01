@@ -4,6 +4,7 @@ import { Plus, Minus } from 'lucide-react';
 import Sparkles from './effects/Sparkles.jsx';
 import Bandeira from './ui/Bandeira.jsx';
 import { sfx, sfxState } from '../lib/sfx.js';
+import { useModoColagem } from '../contexts/ModoColagem.jsx';
 import fundoFigurinha from '../fundo_figurinha.png';
 
 /**
@@ -12,9 +13,11 @@ import fundoFigurinha from '../fundo_figurinha.png';
  */
 export default function FigurinhaSticker({ numero, rotulo, kind, selecao, qtd, onInc, onDec }) {
   const [burst, setBurst] = useState(0);
+  const modo = useModoColagem();
+  const repetidasOnly = modo === 'repetidas';
 
   const tem      = qtd > 0;
-  const repetida = qtd > 1;
+  const repetida = repetidasOnly ? tem : qtd > 1;
 
   const handleInc = (e) => {
     e.stopPropagation();
@@ -46,7 +49,8 @@ export default function FigurinhaSticker({ numero, rotulo, kind, selecao, qtd, o
 
   const numColor = repetida ? 'text-amber-300' : tem ? 'text-emerald-200' : 'text-white';
   const nomeColor = repetida ? 'text-amber-200' : tem ? 'text-emerald-100' : 'text-white/90';
-  const extras = qtd > 1 ? qtd - 1 : 0;
+  const extras = repetidasOnly ? qtd : (qtd > 1 ? qtd - 1 : 0);
+  const extrasLabel = repetidasOnly ? 'TROCA' : 'REP';
 
   return (
     <motion.div
@@ -86,7 +90,7 @@ export default function FigurinhaSticker({ numero, rotulo, kind, selecao, qtd, o
 
         {extras > 0 && (
           <span className="ml-auto bg-amber-400 text-stone-950 rounded-full px-1.5 py-0.5 text-[8px] font-black leading-none shadow-md">
-            +{extras} REP
+            +{extras} {extrasLabel}
           </span>
         )}
       </div>
