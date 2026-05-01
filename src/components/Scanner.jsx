@@ -1,25 +1,35 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Camera, Zap, ZapOff, Loader2, Check, Sparkles } from 'lucide-react';
+import { X, Camera, Zap, ZapOff, Loader2, Check, Sparkles, Bug } from 'lucide-react';
 import { recognize, getOCRWorker, disposeOCR } from '../lib/ocr.js';
 import { normalizeId } from '../data/album.js';
 import { rotuloFigurinha } from '../lib/figurinhas.js';
 import { sfx, sfxState } from '../lib/sfx.js';
 
-/* Regex pra capturar tokens tipo "BRA 5", "BRA-5", "FWC12", "ARG  20" */
-const CODE_REGEX = /\b([A-Z]{2,5})\s*[-]?\s*(\d{1,2})\b/g;
+/* Aceita 2-5 chars (letra ou número, OCR confunde) seguidos de 1-2 dígitos */
+const CODE_REGEX = /\b([A-Z0-9]{2,5})\s*[-]?\s*(\d{1,2})\b/g;
 
-function extractIds(text) {
+function extractIds(text, debug) {
   if (!text) return [];
   const upper = text.toUpperCase().replace(/[^A-Z0-9\s-]/g, ' ');
   const ids = new Set();
+  const debugMatches = [];
   let m;
   while ((m = CODE_REGEX.exec(upper)) !== null) {
-    const norm = normalizeId(`${m[1]}-${m[2]}`);
+    let prefix = m[1];
+    // Conserta confusões clássicas do OCR (números → letras parecidas no prefixo)
+    const fixed = prefix
+      .replace(/0/g, 'O')
+      .replace(/1/g, 'I')
+      .replace(/5/g, 'S')
+      .replace(/8/g, 'B');
+    const norm = normalizeId(`${fixed}-${m[2]}`);
+    debugMatches.push(`${prefix}-${m[2]} → ${norm || 'inválido'}`);
     if (!norm) continue;
     const info = rotuloFigurinha(norm);
     if (info.kind && info.kind !== 'unknown') ids.add(norm);
   }
+  if (debug) debug.matches = debugMatches;
   return [...ids];
 }
 
@@ -29,31 +39,34 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
   const streamRef  = useRef(null);
   const trackRef   = useRef(null);
   const loopRef    = useRef(null);
-  const lastIdsRef = useRef(new Map()); // id -> timestamp (anti-duplicação)
+  const lastIdsRef = useRef(new Map());
   const busyRef    = useRef(false);
 
-  const [status, setStatus]     = useState('idle');     // idle | loading | scanning | error
+  const [status, setStatus]     = useState('idle');
   const [erro, setErro]         = useState('');
   const [torchOn, setTorchOn]   = useState(false);
   const [torchOk, setTorchOk]   = useState(false);
-  const [historico, setHistorico] = useState([]);       // últimas figurinhas adicionadas {id, info, t}
+  const [historico, setHistorico] = useState([]);
+  const [showDebug, setShowDebug] = useState(false);
+  const [debug, setDebug] = useState({ frames: 0, lastText: '', matches: [], lastFrameMs: 0 });
 
-  const COOLDOWN_MS = 1500;  // mesma figurinha só conta de novo após 1.5s
-  const FRAME_MS    = 700;   // intervalo entre OCRs
+  const COOLDOWN_MS = 1500;
+  const FRAME_MS    = 500;
 
-  /* ---------- Câmera ---------- */
   const iniciarCamera = useCallback(async () => {
     setErro('');
     setStatus('loading');
     try {
-      // Pré-aquece o worker em paralelo com a câmera
-      getOCRWorker().catch(() => {});
+      getOCRWorker().catch((e) => {
+        console.error('[scanner] worker init', e);
+        setErro('Falha ao iniciar OCR: ' + (e?.message || 'desconhecido'));
+      });
 
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: 'environment' },
-          width:  { ideal: 1280 },
-          height: { ideal: 720 },
+          width:  { ideal: 1920 },
+          height: { ideal: 1080 },
         },
         audio: false,
       });
@@ -61,20 +74,23 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
       const track = stream.getVideoTracks()[0];
       trackRef.current = track;
 
-      // Detecta suporte a torch (lanterna)
       const caps = track.getCapabilities?.() || {};
       setTorchOk(!!caps.torch);
 
       const v = videoRef.current;
       if (v) {
         v.srcObject = stream;
+        v.setAttribute('playsinline', 'true');
         await v.play();
       }
       setStatus('scanning');
       iniciarLoop();
     } catch (e) {
       console.error('[scanner] camera erro', e);
-      setErro(e?.message || 'Não foi possível acessar a câmera');
+      const msg = e?.name === 'NotAllowedError'
+        ? 'Permissão de câmera negada. Verifique configurações do navegador.'
+        : (e?.message || 'Não foi possível acessar a câmera');
+      setErro(msg);
       setStatus('error');
     }
   }, []);
@@ -89,18 +105,31 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
     busyRef.current = false;
   }, []);
 
-  /* ---------- Loop OCR ---------- */
+  const tocarParaFocar = useCallback(async () => {
+    const t = trackRef.current;
+    if (!t) return;
+    try {
+      const caps = t.getCapabilities?.() || {};
+      if (caps.focusMode?.includes('continuous')) {
+        await t.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+      } else if (caps.focusMode?.includes('single-shot')) {
+        await t.applyConstraints({ advanced: [{ focusMode: 'single-shot' }] });
+      }
+      sfx.tick();
+    } catch (_) {}
+  }, []);
+
   const iniciarLoop = useCallback(() => {
     const tick = async () => {
       if (!streamRef.current) return;
       if (!busyRef.current) {
         busyRef.current = true;
-        try { await processarFrame(); } catch (_) {}
+        try { await processarFrame(); } catch (e) { console.warn('[scanner] frame err', e); }
         busyRef.current = false;
       }
       loopRef.current = setTimeout(tick, FRAME_MS);
     };
-    loopRef.current = setTimeout(tick, 400);
+    loopRef.current = setTimeout(tick, 600);
   }, []);
 
   const processarFrame = useCallback(async () => {
@@ -108,32 +137,75 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
     const c = canvasRef.current;
     if (!v || !c || v.readyState < 2) return;
 
-    // Crop central (60% largura x 30% altura) — onde fica a mira
+    const t0 = performance.now();
     const vw = v.videoWidth, vh = v.videoHeight;
     if (!vw || !vh) return;
-    const cw = Math.floor(vw * 0.6);
-    const ch = Math.floor(vh * 0.30);
+
+    // Crop central 80% x 50%, scale-up 1.5x
+    const cw = Math.floor(vw * 0.80);
+    const ch = Math.floor(vh * 0.50);
     const sx = Math.floor((vw - cw) / 2);
     const sy = Math.floor((vh - ch) / 2);
+    const scale = 1.5;
+    const dw = Math.floor(cw * scale);
+    const dh = Math.floor(ch * scale);
 
-    c.width  = cw;
-    c.height = ch;
+    c.width  = dw;
+    c.height = dh;
     const ctx = c.getContext('2d', { willReadFrequently: true });
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(v, sx, sy, cw, ch, 0, 0, dw, dh);
 
-    // Desenha + aumenta contraste em grayscale (ajuda Tesseract muito)
-    ctx.drawImage(v, sx, sy, cw, ch, 0, 0, cw, ch);
-    const img = ctx.getImageData(0, 0, cw, ch);
+    // Binarização Otsu
+    const img = ctx.getImageData(0, 0, dw, dh);
     const d = img.data;
+    const hist = new Array(256).fill(0);
     for (let i = 0; i < d.length; i += 4) {
-      const g = (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114);
-      // Threshold suave + boost de contraste
-      const v2 = g < 110 ? Math.max(0, g - 40) : Math.min(255, g + 40);
+      const g = (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114) | 0;
+      hist[g]++;
+    }
+    const total = d.length / 4;
+    let sum = 0;
+    for (let t = 0; t < 256; t++) sum += t * hist[t];
+    let sumB = 0, wB = 0, max = 0, threshold = 127;
+    for (let t = 0; t < 256; t++) {
+      wB += hist[t];
+      if (wB === 0) continue;
+      const wF = total - wB;
+      if (wF === 0) break;
+      sumB += t * hist[t];
+      const mB = sumB / wB;
+      const mF = (sum - sumB) / wF;
+      const between = wB * wF * (mB - mF) * (mB - mF);
+      if (between > max) { max = between; threshold = t; }
+    }
+    for (let i = 0; i < d.length; i += 4) {
+      const g = (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114) | 0;
+      const v2 = g < threshold ? 0 : 255;
       d[i] = d[i + 1] = d[i + 2] = v2;
     }
     ctx.putImageData(img, 0, 0);
 
-    const text = await recognize(c);
-    const ids = extractIds(text);
+    let text = '';
+    try {
+      text = await recognize(c);
+    } catch (e) {
+      console.warn('[scanner] ocr err', e);
+      return;
+    }
+
+    const dbgInfo = {};
+    const ids = extractIds(text, dbgInfo);
+    const elapsed = performance.now() - t0;
+
+    setDebug((d2) => ({
+      frames: d2.frames + 1,
+      lastText: (text || '').trim().replace(/\n+/g, ' ').slice(0, 80),
+      matches: dbgInfo.matches || [],
+      lastFrameMs: Math.round(elapsed),
+    }));
+
     if (ids.length === 0) return;
 
     const now = Date.now();
@@ -146,7 +218,6 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
     }
     if (novos.length === 0) return;
 
-    // Detectou! Beep + callback
     sfx.beep();
     if (navigator.vibrate) try { navigator.vibrate(40); } catch (_) {}
     onDetectar?.(novos);
@@ -157,7 +228,6 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
     });
   }, [onDetectar]);
 
-  /* ---------- Torch ---------- */
   const toggleTorch = useCallback(async () => {
     const t = trackRef.current;
     if (!t || !torchOk) return;
@@ -171,17 +241,16 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
     }
   }, [torchOn, torchOk]);
 
-  /* ---------- Lifecycle ---------- */
   useEffect(() => {
     if (!aberto) return;
     sfxState.unlock();
     setHistorico([]);
+    setDebug({ frames: 0, lastText: '', matches: [], lastFrameMs: 0 });
     lastIdsRef.current.clear();
     iniciarCamera();
     return () => { pararCamera(); };
   }, [aberto, iniciarCamera, pararCamera]);
 
-  // Termina o worker quando o app fecha — não a cada abertura (cara de inicializar).
   useEffect(() => () => { disposeOCR(); }, []);
 
   const handleFechar = useCallback(() => {
@@ -190,7 +259,6 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
     onFechar?.();
   }, [pararCamera, onFechar]);
 
-  /* ---------- UI ---------- */
   return (
     <AnimatePresence>
       {aberto && (
@@ -200,23 +268,23 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-[60] bg-black"
         >
-          {/* Vídeo */}
           <video
             ref={videoRef}
             playsInline
             muted
+            autoPlay
+            onClick={tocarParaFocar}
             className="absolute inset-0 w-full h-full object-cover"
           />
           <canvas ref={canvasRef} className="hidden" />
 
-          {/* Overlay escurecedor com mira */}
+          {/* Mira */}
           <div className="absolute inset-0 pointer-events-none">
-            <div className="absolute inset-0 bg-black/40" />
+            <div className="absolute inset-0 bg-black/30" />
             <div
-              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-2xl ring-2 ring-amber-400 shadow-[0_0_0_9999px_rgba(0,0,0,0.55)]"
-              style={{ width: '60vw', maxWidth: 460, aspectRatio: '2 / 1' }}
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-2xl ring-2 ring-amber-400 shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]"
+              style={{ width: '80vw', maxWidth: 540, aspectRatio: '8 / 5' }}
             >
-              {/* cantos */}
               {['tl', 'tr', 'bl', 'br'].map((c) => (
                 <div
                   key={c}
@@ -228,7 +296,6 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
                   }`}
                 />
               ))}
-              {/* linha de scan animada */}
               <motion.div
                 className="absolute left-2 right-2 h-[2px] bg-amber-400 shadow-[0_0_12px_2px_rgba(251,191,36,0.9)]"
                 animate={{ top: ['8%', '92%', '8%'] }}
@@ -245,12 +312,21 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
               {status === 'error' && <X className="w-4 h-4 text-rose-400" />}
               <span className="text-xs font-mono text-stone-200">
                 {status === 'loading' && 'Iniciando câmera + OCR...'}
-                {status === 'scanning' && 'Aponte para a figurinha'}
+                {status === 'scanning' && (debug.frames === 0 ? 'Aguardando OCR...' : `Frame ${debug.frames}`)}
                 {status === 'error' && 'Erro'}
               </span>
             </div>
 
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => { setShowDebug((v) => !v); sfx.tick(); }}
+                className={`w-10 h-10 rounded-full flex items-center justify-center backdrop-blur ring-1 ${
+                  showDebug ? 'bg-sky-400 ring-sky-400 text-black' : 'bg-black/60 ring-white/10 text-stone-200'
+                }`}
+                title="Debug OCR"
+              >
+                <Bug className="w-5 h-5" />
+              </button>
               {torchOk && (
                 <button
                   onClick={toggleTorch}
@@ -270,7 +346,32 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
             </div>
           </div>
 
-          {/* Erro */}
+          {/* Debug overlay */}
+          {showDebug && (
+            <div className="absolute top-20 left-3 right-3 z-10">
+              <div className="bg-sky-950/90 ring-1 ring-sky-500/40 rounded-xl p-3 backdrop-blur text-[11px] font-mono space-y-1">
+                <div className="flex justify-between text-sky-300 font-bold uppercase tracking-wider text-[9px]">
+                  <span>OCR DEBUG</span>
+                  <span>{debug.lastFrameMs}ms · {debug.frames} frames</span>
+                </div>
+                <div className="text-stone-200 break-words">
+                  <span className="text-sky-400">lendo:</span>{' '}
+                  {debug.lastText || <em className="text-stone-500">(nada)</em>}
+                </div>
+                {debug.matches.length > 0 ? (
+                  <div className="text-emerald-300 break-words">
+                    matches: {debug.matches.join(' · ')}
+                  </div>
+                ) : (
+                  <div className="text-stone-500">matches: nenhum</div>
+                )}
+                <div className="text-[9px] text-sky-200/60 pt-1 border-t border-sky-800/50 mt-1">
+                  Toque na tela pra focar · Use a 🔦 com pouca luz
+                </div>
+              </div>
+            </div>
+          )}
+
           {status === 'error' && (
             <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 z-10">
               <div className="bg-rose-950/90 ring-1 ring-rose-500/40 rounded-2xl p-5 text-center">
@@ -283,7 +384,6 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
             </div>
           )}
 
-          {/* Histórico (últimas adicionadas) */}
           <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
             <div className="max-w-md mx-auto space-y-2">
               <div className="flex items-center justify-between px-1">
@@ -323,7 +423,7 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
               {historico.length === 0 && status === 'scanning' && (
                 <div className="text-center text-[11px] text-stone-400 px-4">
                   Centralize o código (ex.: <span className="font-mono text-amber-400">BRA-5</span>) na mira.
-                  Ele será adicionado automaticamente.
+                  Toque na tela para focar.
                 </div>
               )}
             </div>

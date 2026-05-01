@@ -30,6 +30,9 @@ import ModalConfig   from './src/components/modals/ModalConfig.jsx';
 import ModalAtalhos  from './src/components/modals/ModalAtalhos.jsx';
 import ModalLogin    from './src/components/modals/ModalLogin.jsx';
 import Scanner       from './src/components/Scanner.jsx';
+import TelaLogin     from './src/components/TelaLogin.jsx';
+import { useAuth }   from './src/hooks/useAuth.js';
+import { SUPABASE_ENABLED } from './src/lib/supabase.js';
 
 /* Parser de códigos colados (pacote / quickAdd). Aceita apenas PREFIX-N ou PREFIX N. */
 function parseCodigos(texto) {
@@ -52,6 +55,7 @@ export default function App() {
     stats, repetidasLista, progressoSelecoes, especiais,
   } = useColecao();
   const { toasts, push } = useToasts();
+  const { user, loading: authLoading } = useAuth();
 
   const [aba, setAba]                     = useState('dashboard');
   const [busca, setBusca]                 = useState('');
@@ -215,7 +219,7 @@ export default function App() {
   }), []);
   useAtalhos(atalhos);
 
-  if (carregando) {
+  if (carregando || (SUPABASE_ENABLED && authLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <motion.div
@@ -224,6 +228,17 @@ export default function App() {
           className="w-12 h-12 rounded-full border-4 border-amber-400/30 border-t-amber-400"
         />
       </div>
+    );
+  }
+
+  // Gate de autenticação: primeira página é o login.
+  // (Se Supabase não estiver configurado, libera o app — modo offline.)
+  if (SUPABASE_ENABLED && !user) {
+    return (
+      <>
+        <TelaLogin />
+        <Toasts toasts={toasts} />
+      </>
     );
   }
 
