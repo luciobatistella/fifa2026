@@ -6,11 +6,11 @@
 // =============================================================================
 
 import {
-  SELECOES, FIGURINHAS_POR_SELECAO, TOTAL_ESPECIAIS, TOTAL_FIGURINHAS,
+  SELECOES, FIGURINHAS_POR_SELECAO, TOTAL_ESPECIAIS, TOTAL_CC, TOTAL_FIGURINHAS,
   BADGE_POS, TEAM_PHOTO_POS, indiceJogador,
 } from '../data/selecoes.js';
 import { nomeJogador } from '../data/jogadores.js';
-import { infoEspecial } from '../data/especiais.js';
+import { infoEspecial, infoCocaCola } from '../data/especiais.js';
 import { parseId, toCode, getCollectionState, buildSticker } from '../data/album.js';
 
 export const fmtNum = (n) => new Intl.NumberFormat('pt-BR').format(n);
@@ -35,6 +35,18 @@ export function rotuloFigurinha(id) {
       titulo: ie.nome,
       sub: `${ie.categoria?.nome || 'FIFA'} · ${toCode(id)}`,
       emoji: ie.emoji,
+      kind: 'special',
+      code: toCode(id),
+    };
+  }
+
+  // ---- CC / Coca-Cola ----
+  if (p.group === 'cocacola') {
+    const ic = infoCocaCola(p.number - 1);          // catálogo 0-indexed
+    return {
+      titulo: ic.nome,
+      sub: `Coca-Cola · ${toCode(id)}`,
+      emoji: ic.emoji,
       kind: 'special',
       code: toCode(id),
     };
@@ -109,4 +121,15 @@ export function progressoEspeciais(colecao) {
     if (q > 1) rep += q - 1;
   }
   return { tem, total: TOTAL_ESPECIAIS, rep, perc: (tem / TOTAL_ESPECIAIS) * 100 };
+}
+
+/** Progresso global das figurinhas CC (Coca-Cola). */
+export function progressoCocaCola(colecao) {
+  let tem = 0, rep = 0;
+  for (let i = 1; i <= TOTAL_CC; i++) {
+    const q = colecao[`CC-${i}`] || 0;
+    if (q > 0) tem++;
+    if (q > 1) rep += q - 1;
+  }
+  return { tem, total: TOTAL_CC, rep, perc: (tem / TOTAL_CC) * 100 };
 }

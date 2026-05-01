@@ -85,3 +85,31 @@ drop trigger if exists profiles_set_updated_at on public.profiles;
 create trigger profiles_set_updated_at
   before update on public.profiles
   for each row execute function public.tg_set_updated_at();
+
+-- 3) PÁGINA PÚBLICA DE TROCAS -------------------------------------------------
+-- Permite que qualquer pessoa (mesmo sem login) veja as figurinhas repetidas
+-- (owned > 1) de qualquer usuário via username.
+
+-- Policy: leitura pública das repetidas (owned > 1)
+drop policy if exists "collections_select_public_extras" on public.collections;
+create policy "collections_select_public_extras"
+  on public.collections
+  for select
+  using (owned > 1);
+
+-- View pública que junta profile + repetidas (simplifica a query no cliente)
+create or replace view public.trocas_publicas as
+  select
+    p.username,
+    p.display_name,
+    p.avatar_url,
+    c.sticker_id,
+    c.owned,
+    c.owned - 1 as extras
+  from public.collections c
+  join public.profiles p on p.id = c.user_id
+  where c.owned > 1
+    and p.username is not null;
+
+-- Garante que a view seja acessível sem autenticação
+grant select on public.trocas_publicas to anon, authenticated;

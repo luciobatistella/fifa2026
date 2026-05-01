@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   CheckCircle2, Circle, Repeat2, Package, Wand2, Shuffle,
   TrendingUp, Target, Flame, ArrowUpRight,
@@ -14,6 +14,7 @@ import { fmtNum } from '../lib/figurinhas.js';
 export default function Dashboard({
   stats, progresso, especiais, repetidas, onAbrirSelecao, onAbrirPacote, onQuickAdd,
 }) {
+  const [ordemHeatmap, setOrdemHeatmap] = useState('grupo'); // 'grupo' | 'az' | 'perc'
   const completas    = progresso.filter((s) => s.tem === s.total).length;
   const naoIniciadas = progresso.filter((s) => s.tem === 0).length;
   const proximas     = [...progresso]
@@ -97,8 +98,30 @@ export default function Dashboard({
 
       {/* Heatmap */}
       <PainelGlass titulo="HEATMAP DAS SELEÇÕES" icon={Flame}>
+        {/* Controles de ordenação */}
+        <div className="flex gap-1 mb-3">
+          {[{ v: 'grupo', l: 'Por Grupo' }, { v: 'az', l: 'A – Z' }, { v: 'perc', l: 'Progresso' }].map(({ v, l }) => (
+            <button
+              key={v}
+              onClick={() => setOrdemHeatmap(v)}
+              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-wide transition-colors ${
+                ordemHeatmap === v
+                  ? 'bg-amber-400/20 text-amber-400 ring-1 ring-amber-400/40'
+                  : 'text-stone-500 hover:text-stone-300'
+              }`}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
         <div className="grid grid-cols-8 sm:grid-cols-12 gap-1.5">
-          {progresso.map((s) => {
+          {[...progresso]
+            .sort(
+              ordemHeatmap === 'az'   ? (a, b) => a.nome.localeCompare(b.nome, 'pt') :
+              ordemHeatmap === 'perc' ? (a, b) => b.perc - a.perc || b.tem - a.tem :
+              (a, b) => a.grupo.localeCompare(b.grupo) || a.nome.localeCompare(b.nome, 'pt')
+            )
+            .map((s) => {
             const cor = s.perc === 100 ? 'bg-emerald-400'
                      : s.perc >= 75   ? 'bg-amber-400'
                      : s.perc >= 50   ? 'bg-amber-500/70'

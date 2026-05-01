@@ -19,6 +19,7 @@ import Confetti      from './src/components/effects/Confetti.jsx';
 import Dashboard     from './src/components/Dashboard.jsx';
 import ListaSelecoes from './src/components/ListaSelecoes.jsx';
 import SecaoEspeciais from './src/components/SecaoEspeciais.jsx';
+import SecaoCocaCola from './src/components/SecaoCocaCola.jsx';
 import DetalhesSelecao from './src/components/DetalhesSelecao.jsx';
 import Busca         from './src/components/Busca.jsx';
 import Trocas        from './src/components/Trocas.jsx';
@@ -53,7 +54,7 @@ export default function App() {
   const {
     colecao, meta, carregando,
     setMeta, inc, dec, adicionarMuitos, resetar, substituirColecao,
-    stats, repetidasLista, progressoSelecoes, especiais,
+    stats, repetidasLista, progressoSelecoes, especiais, cocaCola,
   } = useColecao(user?.id);
   const { toasts, push } = useToasts();
 
@@ -83,7 +84,7 @@ export default function App() {
     if (!initRef.current) {
       progressoSelecoes.forEach((s) => { if (s.tem === s.total) completasRef.current.add(s.codigo); });
       especiaisFullRef.current = especiais.tem === especiais.total;
-      albumFullRef.current     = stats.distintas === 980;
+      albumFullRef.current     = stats.faltando === 0;
       initRef.current = true;
       return;
     }
@@ -107,7 +108,7 @@ export default function App() {
     }
     especiaisFullRef.current = espFull;
     // álbum inteiro
-    const albFull = stats.distintas === 980;
+    const albFull = stats.faltando === 0;
     if (albFull && !albumFullRef.current) {
       sfx.fanfare();
       setTimeout(() => sfx.fanfare(), 400);
@@ -256,6 +257,7 @@ export default function App() {
     if (aba === 'selecoes' && !selecaoAberta) return (
       <div className="space-y-6">
         <SecaoEspeciais colecao={colecao} prog={especiais} onInc={handleInc} onDec={handleDec} />
+        <SecaoCocaCola colecao={colecao} prog={cocaCola} onInc={handleInc} onDec={handleDec} />
         <ListaSelecoes progresso={progressoSelecoes} onAbrir={(s) => { sfx.tick(); setSelecaoAberta(s); }} />
       </div>
     );

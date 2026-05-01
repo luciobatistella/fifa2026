@@ -3,7 +3,7 @@ import { storage } from '../lib/storage.js';
 import {
   SELECOES, FIGURINHAS_POR_SELECAO, TOTAL_FIGURINHAS, FIGURINHAS_POR_PACOTE, STORAGE_KEY,
 } from '../data/selecoes.js';
-import { progressoSelecao, progressoEspeciais, rotuloFigurinha } from '../lib/figurinhas.js';
+import { progressoSelecao, progressoEspeciais, progressoCocaCola, rotuloFigurinha } from '../lib/figurinhas.js';
 import { parseId } from '../data/album.js';
 
 export function useColecao(userId) {
@@ -94,6 +94,7 @@ export function useColecao(userId) {
     [colecao]);
 
   const especiais = useMemo(() => progressoEspeciais(colecao), [colecao]);
+  const cocaCola  = useMemo(() => progressoCocaCola(colecao), [colecao]);
 
   return {
     // state
@@ -103,7 +104,7 @@ export function useColecao(userId) {
     // mutations
     setQtd, inc, dec, adicionarMuitos, resetar, substituirColecao,
     // derived
-    stats, repetidasLista, progressoSelecoes, especiais,
+    stats, repetidasLista, progressoSelecoes, especiais, cocaCola,
   };
 }
 

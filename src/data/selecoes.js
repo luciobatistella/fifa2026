@@ -65,8 +65,9 @@ export const SELECOES = [
 ];
 
 export const FIGURINHAS_POR_SELECAO = 20;          // padrão oficial Panini 2026 (1 escudo + 1 foto da equipe + 18 jogadores)
-export const TOTAL_ESPECIAIS        = 30;          // FWC-1 .. FWC-30
-export const TOTAL_FIGURINHAS       = TOTAL_ESPECIAIS + SELECOES.length * FIGURINHAS_POR_SELECAO; // 990
+export const TOTAL_ESPECIAIS        = 19;          // FWC-1 .. FWC-19
+export const TOTAL_CC               = 14;          // CC-1  .. CC-14
+export const TOTAL_FIGURINHAS       = TOTAL_ESPECIAIS + TOTAL_CC + SELECOES.length * FIGURINHAS_POR_SELECAO; // 19+14+960 = 993
 export const FIGURINHAS_POR_PACOTE  = 7;
 export const STORAGE_KEY            = 'album-copa-2026.v2';
 

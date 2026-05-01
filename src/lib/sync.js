@@ -59,6 +59,54 @@ export async function pushCollection(userId, colecao) {
 }
 
 /**
+ * Busca as repetidas públicas de um usuário pelo username.
+ * Retorna { displayName, avatarUrl, repetidas: [{ stickerId, owned, extras }] }
+ * ou null se o username não existir.
+ */
+export async function fetchTrocasPublicas(username) {
+  if (!SUPABASE_ENABLED) return null;
+  const { data, error } = await supabase
+    .from('trocas_publicas')
+    .select('username, display_name, avatar_url, sticker_id, owned, extras')
+    .eq('username', username.toLowerCase().trim());
+  if (error) throw error;
+  if (!data || data.length === 0) return null;
+  const first = data[0];
+  return {
+    username: first.username,
+    displayName: first.display_name,
+    avatarUrl: first.avatar_url,
+    repetidas: data.map((r) => ({ stickerId: r.sticker_id, owned: r.owned, extras: r.extras })),
+  };
+}
+
+/**
+ * Salva/atualiza o username do usuário logado.
+ */
+export async function saveUsername(userId, username) {
+  if (!SUPABASE_ENABLED || !userId) return;
+  const { error } = await supabase
+    .from('profiles')
+    .update({ username: username.toLowerCase().trim() })
+    .eq('id', userId);
+  if (error) throw error;
+}
+
+/**
+ * Busca o username atual do usuário logado.
+ */
+export async function getUsername(userId) {
+  if (!SUPABASE_ENABLED || !userId) return null;
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('username')
+    .eq('id', userId)
+    .single();
+  if (error) return null;
+  return data?.username ?? null;
+}
+
+/**
  * Conta quantas figurinhas o usuário tem na nuvem (sem baixar tudo).
  */
 export async function remoteCount(userId) {

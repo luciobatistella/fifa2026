@@ -3,7 +3,7 @@ import { Search, X } from 'lucide-react';
 import FigurinhaCard from './FigurinhaCard.jsx';
 import { rotuloFigurinha } from '../lib/figurinhas.js';
 import { parseId, normalizeId } from '../data/album.js';
-import { SELECOES, TOTAL_ESPECIAIS, TOTAL_FIGURINHAS, FIGURINHAS_POR_SELECAO } from '../data/selecoes.js';
+import { SELECOES, TOTAL_ESPECIAIS, TOTAL_CC, TOTAL_FIGURINHAS, FIGURINHAS_POR_SELECAO } from '../data/selecoes.js';
 
 export default function Busca({ busca, setBusca, colecao, onInc, onDec }) {
   const inputRef  = useRef(null);
@@ -37,6 +37,14 @@ export default function Busca({ busca, setBusca, colecao, onInc, onDec }) {
     if ('ESPECIAIS FWC FIFA'.includes(buscaUpper) || buscaUpper === 'ESP' || buscaUpper === 'FWC') {
       for (let i = 1; i <= TOTAL_ESPECIAIS; i++) {
         const id = `FWC-${i}`;
+        if (!r.some((x) => x.id === id)) r.push({ id, info: rotuloFigurinha(id), numero: i });
+      }
+    }
+
+    // Por "CC" / "COCA" / "COCA-COLA"
+    if ('COCA-COLA COCA CC'.includes(buscaUpper) || buscaUpper === 'CC') {
+      for (let i = 1; i <= TOTAL_CC; i++) {
+        const id = `CC-${i}`;
         if (!r.some((x) => x.id === id)) r.push({ id, info: rotuloFigurinha(id), numero: i });
       }
     }

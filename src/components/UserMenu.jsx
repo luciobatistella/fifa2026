@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LogIn, LogOut, CloudUpload, CloudDownload, Cloud, User as UserIcon, Loader2 } from 'lucide-react';
+import { LogIn, LogOut, CloudUpload, CloudDownload, Cloud, User as UserIcon, Loader2, Link2, Check, X } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth.js';
-import { pullCollection, pushCollection, remoteCount } from '../lib/sync.js';
+import { pullCollection, pushCollection, remoteCount, saveUsername, getUsername } from '../lib/sync.js';
 import { sfx, sfxState } from '../lib/sfx.js';
 
 export default function UserMenu({ colecao, onAbrirLogin, onSubstituirColecao, pushToast }) {
@@ -10,6 +10,10 @@ export default function UserMenu({ colecao, onAbrirLogin, onSubstituirColecao, p
   const [aberto, setAberto] = useState(false);
   const [busy, setBusy]     = useState(null); // 'push' | 'pull' | 'check'
   const [remoteN, setRemoteN] = useState(null);
+  const [username, setUsername]       = useState('');
+  const [usernameEdit, setUsernameEdit] = useState(false);
+  const [usernameInput, setUsernameInput] = useState('');
+  const [usernameSaving, setUsernameSaving] = useState(false);
   const ref = useRef(null);
 
   // Fecha ao clicar fora
@@ -22,11 +26,16 @@ export default function UserMenu({ colecao, onAbrirLogin, onSubstituirColecao, p
 
   // Quando logar, checa quantas figurinhas existem na nuvem
   useEffect(() => {
-    if (!user) { setRemoteN(null); return; }
+    if (!user) { setRemoteN(null); setUsername(''); return; }
     let alive = true;
     setBusy('check');
-    remoteCount(user.id)
-      .then((n) => { if (alive) setRemoteN(n); })
+    Promise.all([remoteCount(user.id), getUsername(user.id)])
+      .then(([n, uname]) => {
+        if (!alive) return;
+        setRemoteN(n);
+        setUsername(uname || '');
+        setUsernameInput(uname || '');
+      })
       .catch(() => {})
       .finally(() => { if (alive) setBusy(null); });
     return () => { alive = false; };
@@ -87,6 +96,23 @@ export default function UserMenu({ colecao, onAbrirLogin, onSubstituirColecao, p
     sfx.close();
     pushToast?.('Você saiu da conta', 'amber');
   }, [signOut, pushToast]);
+
+  const handleSaveUsername = useCallback(async () => {
+    if (!user) return;
+    const val = usernameInput.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+    if (!val) return;
+    setUsernameSaving(true);
+    try {
+      await saveUsername(user.id, val);
+      setUsername(val);
+      setUsernameEdit(false);
+      pushToast?.(`Apelido @${val} salvo!`, 'emerald');
+    } catch (e) {
+      pushToast?.(`Erro: ${e.message}`, 'rose');
+    } finally {
+      setUsernameSaving(false);
+    }
+  }, [user, usernameInput, pushToast]);
 
   if (!enabled) return null;
 
@@ -166,6 +192,62 @@ export default function UserMenu({ colecao, onAbrirLogin, onSubstituirColecao, p
 
             {/* Ações */}
             <div className="p-2 space-y-1">
+              {/* Apelido / link de trocas */}
+              <div className="px-3 py-2 rounded-lg bg-stone-900/60">
+                <div className="text-[10px] text-stone-500 font-bold tracking-widest mb-1.5 flex items-center gap-1">
+                  <Link2 className="w-3 h-3" /> LINK DE TROCAS
+                </div>
+                {usernameEdit ? (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-stone-500 text-xs">@</span>
+                    <input
+                      autoFocus
+                      value={usernameInput}
+                      onChange={(e) => setUsernameInput(e.target.value.replace(/[^a-z0-9_]/gi, ''))}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleSaveUsername(); if (e.key === 'Escape') setUsernameEdit(false); }}
+                      placeholder="seu_apelido"
+                      maxLength={30}
+                      className="flex-1 bg-stone-800 rounded-lg px-2 py-1 text-xs text-stone-100 outline-none ring-1 ring-stone-700 focus:ring-amber-400/60 min-w-0"
+                    />
+                    <button
+                      onClick={handleSaveUsername}
+                      disabled={usernameSaving || !usernameInput.trim()}
+                      className="w-6 h-6 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center disabled:opacity-40"
+                    >
+                      {usernameSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                    </button>
+                    <button onClick={() => setUsernameEdit(false)} className="w-6 h-6 rounded-lg bg-stone-800 text-stone-400 flex items-center justify-center">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ) : username ? (
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={`/trocas/${username}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex-1 text-xs text-amber-400 hover:underline truncate font-bold"
+                    >
+                      {window.location.host}/trocas/{username}
+                    </a>
+                    <button
+                      onClick={() => { setUsernameInput(username); setUsernameEdit(true); }}
+                      className="text-[10px] text-stone-500 hover:text-stone-300 shrink-0"
+                    >
+                      editar
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setUsernameEdit(true)}
+                    className="text-xs text-amber-400/70 hover:text-amber-300 transition"
+                  >
+                    + Definir apelido para criar link de trocas
+                  </button>
+                )}
+              </div>
+
+              <div className="border-t border-stone-800/80 my-1" />
               <button
                 onClick={handlePush}
                 disabled={busy !== null}

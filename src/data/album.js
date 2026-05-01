@@ -19,19 +19,23 @@ export const ALBUM_META = {
 // Mapa prefix -> grupo (taxonomia oficial)
 export const GROUP_OF_PREFIX = {
   FWC: 'fifa',
+  CC:  'cocacola',
   ...Object.fromEntries(SELECOES.map((s) => [s.codigo, 'teams'])),
 };
 
 // Quantidades-padrão
-export const FWC_RANGE       = { start: 1, end: 30 };  // 30 figurinhas FIFA / Especiais
+export const FWC_RANGE       = { start: 1, end: 19 };  // 19 figurinhas FIFA / Especiais
+export const CC_RANGE        = { start: 1, end: 14 };  // 14 figurinhas Coca-Cola
 export const TEAM_RANGE      = { start: 1, end: 20 };  // 20 figurinhas por seleção
 export const STICKERS_PER_TEAM = TEAM_RANGE.end;       // 20
-export const FWC_TOTAL         = FWC_RANGE.end;        // 30
-export const TOTAL_STICKERS    = FWC_TOTAL + SELECOES.length * STICKERS_PER_TEAM; // 30 + 48*20 = 990
+export const FWC_TOTAL         = FWC_RANGE.end;        // 19
+export const CC_TOTAL          = CC_RANGE.end;         // 14
+export const TOTAL_STICKERS    = FWC_TOTAL + CC_TOTAL + SELECOES.length * STICKERS_PER_TEAM; // 19+14+960 = 993
 
 // Definição de grupos (compatível com o JSON enviado pelo cliente)
 export const GROUPS = {
   FWC: { name: 'FIFA / Especiais', range: FWC_RANGE },
+  CC:  { name: 'Coca-Cola',        range: CC_RANGE  },
   ...Object.fromEntries(SELECOES.map((s) => [s.codigo, { name: s.nome, range: TEAM_RANGE }])),
 };
 
