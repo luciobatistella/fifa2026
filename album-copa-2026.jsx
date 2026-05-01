@@ -19,9 +19,11 @@ import Confetti      from './src/components/effects/Confetti.jsx';
 import Dashboard     from './src/components/Dashboard.jsx';
 import ListaSelecoes from './src/components/ListaSelecoes.jsx';
 import SecaoEspeciais from './src/components/SecaoEspeciais.jsx';
+import SecaoCocaCola from './src/components/SecaoCocaCola.jsx';
 import DetalhesSelecao from './src/components/DetalhesSelecao.jsx';
 import Busca         from './src/components/Busca.jsx';
 import Trocas        from './src/components/Trocas.jsx';
+import Amigos        from './src/components/Amigos.jsx';
 import Estatisticas  from './src/components/Estatisticas.jsx';
 
 import ModalPacote   from './src/components/modals/ModalPacote.jsx';
@@ -49,13 +51,14 @@ function parseCodigos(texto) {
 }
 
 export default function App() {
-  const {
-    colecao, meta, carregando,
-    setMeta, inc, dec, adicionarMuitos, resetar, substituirColecao,
-    stats, repetidasLista, progressoSelecoes, especiais,
-  } = useColecao();
-  const { toasts, push } = useToasts();
   const { user, loading: authLoading } = useAuth();
+  const {
+    colecao, meta, carregando, syncStatus,
+    setMeta, inc, dec, adicionarMuitos, resetar, substituirColecao,
+    sincronizarAgora,
+    stats, repetidasLista, progressoSelecoes, especiais, cocaCola,
+  } = useColecao(user?.id);
+  const { toasts, push } = useToasts();
 
   const [aba, setAba]                     = useState('dashboard');
   const [busca, setBusca]                 = useState('');
@@ -83,7 +86,7 @@ export default function App() {
     if (!initRef.current) {
       progressoSelecoes.forEach((s) => { if (s.tem === s.total) completasRef.current.add(s.codigo); });
       especiaisFullRef.current = especiais.tem === especiais.total;
-      albumFullRef.current     = stats.distintas === 980;
+      albumFullRef.current     = stats.faltando === 0;
       initRef.current = true;
       return;
     }
@@ -107,7 +110,7 @@ export default function App() {
     }
     especiaisFullRef.current = espFull;
     // álbum inteiro
-    const albFull = stats.distintas === 980;
+    const albFull = stats.faltando === 0;
     if (albFull && !albumFullRef.current) {
       sfx.fanfare();
       setTimeout(() => sfx.fanfare(), 400);
@@ -128,9 +131,8 @@ export default function App() {
 
   const handleDec = useCallback((id) => { dec(id); }, [dec]);
 
-  const handlePacote = useCallback((codigos) => {
-    const ids = parseCodigos(codigos.join(' '));
-    if (ids.length === 0) { sfx.err(); push('Nenhum código válido', 'rose'); return; }
+  const handlePacote = useCallback((ids) => {
+    if (!ids || ids.length === 0) { sfx.err(); push('Nenhum código válido', 'rose'); return; }
     adicionarMuitos(ids);
     setMPacote(false);
     sfx.pack();
@@ -215,7 +217,8 @@ export default function App() {
     '2': () => setAba('selecoes'),
     '3': () => setAba('buscar'),
     '4': () => setAba('repetidas'),
-    '5': () => setAba('stats'),
+    '5': () => setAba('amigos'),
+    '6': () => setAba('stats'),
   }), []);
   useAtalhos(atalhos);
 
@@ -257,6 +260,7 @@ export default function App() {
     if (aba === 'selecoes' && !selecaoAberta) return (
       <div className="space-y-6">
         <SecaoEspeciais colecao={colecao} prog={especiais} onInc={handleInc} onDec={handleDec} />
+        <SecaoCocaCola colecao={colecao} prog={cocaCola} onInc={handleInc} onDec={handleDec} />
         <ListaSelecoes progresso={progressoSelecoes} onAbrir={(s) => { sfx.tick(); setSelecaoAberta(s); }} />
       </div>
     );
@@ -276,6 +280,14 @@ export default function App() {
     );
     if (aba === 'repetidas') return (
       <Trocas repetidas={repetidasLista} onInc={handleInc} onDec={handleDec} pushToast={push} />
+    );
+    if (aba === 'amigos') return (
+      <Amigos
+        userId={user?.id}
+        meuUsername={user?.user_metadata?.username || null}
+        minhaColecao={colecao}
+        pushToast={push}
+      />
     );
     if (aba === 'stats') return (
       <Estatisticas
@@ -301,7 +313,8 @@ export default function App() {
         onScan={() => setMScan(true)}
         onLogin={() => setMLogin(true)}
         colecao={colecao}
-        onSubstituirColecao={(nova) => { substituirColecao(nova); initRef.current = false; }}
+        syncStatus={syncStatus}
+        onSincronizar={sincronizarAgora}
         pushToast={push}
       />
       <Tabs aba={aba} setAba={(a) => { setAba(a); setSelecaoAberta(null); }} />

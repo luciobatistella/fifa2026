@@ -2,10 +2,9 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, Plus, Package, Settings, ScanLine, Volume2, VolumeX,
-  LogIn, LogOut, CloudUpload, CloudDownload, Cloud, Loader2,
+  LogIn, LogOut, Cloud, CloudOff, Loader2, RefreshCw, Check,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth.js';
-import { pullCollection, pushCollection, remoteCount } from '../lib/sync.js';
 import { sfx, sfxState } from '../lib/sfx.js';
 
 const wrap = (fn, sound = 'tick', closeAfter, setOpen) => () => {
@@ -54,12 +53,11 @@ function Section({ title, children }) {
 export default function SideMenu({
   open, setOpen,
   onPacote, onQuick, onConfig, onScan, onLogin,
-  colecao, onSubstituirColecao, pushToast,
+  colecao, syncStatus = 'idle', onSincronizar, pushToast,
 }) {
-  const { enabled, user, signOut, loading } = useAuth();
+  const { enabled, user, signOut, loading, signInWithGoogle } = useAuth();
   const [muted, setMuted] = useState(() => sfxState.isMuted());
   const [busy, setBusy] = useState(null);
-  const [remoteN, setRemoteN] = useState(null);
 
   // ESC fecha
   useEffect(() => {
@@ -77,54 +75,12 @@ export default function SideMenu({
     return () => { document.body.style.overflow = prev; };
   }, [open]);
 
-  // Conta na nuvem ao logar
-  useEffect(() => {
-    if (!user) { setRemoteN(null); return; }
-    let alive = true;
-    setBusy('check');
-    remoteCount(user.id)
-      .then((n) => { if (alive) setRemoteN(n); })
-      .catch(() => {})
-      .finally(() => { if (alive) setBusy(null); });
-    return () => { alive = false; };
-  }, [user]);
-
   const toggleSfx = useCallback(() => {
     sfxState.unlock();
     const m = sfxState.toggle();
     setMuted(m);
     if (!m) sfx.tick && sfx.tick();
   }, []);
-
-  const handlePush = useCallback(async () => {
-    if (!user) return;
-    setBusy('push');
-    try {
-      await pushCollection(user.id, colecao);
-      const n = await remoteCount(user.id);
-      setRemoteN(n);
-      sfx.ding();
-      pushToast?.(`☁️ ${n} figurinha(s) salva(s) na nuvem`, 'emerald');
-    } catch (e) {
-      sfx.err();
-      pushToast?.(`Erro ao enviar: ${e.message}`, 'rose');
-    } finally { setBusy(null); }
-  }, [user, colecao, pushToast]);
-
-  const handlePull = useCallback(async () => {
-    if (!user) return;
-    if (!window.confirm('Substituir sua coleção local pelos dados da nuvem? A coleção local atual será perdida.')) return;
-    setBusy('pull');
-    try {
-      const remote = await pullCollection(user.id);
-      onSubstituirColecao?.(remote || {});
-      sfx.ding();
-      pushToast?.(`⬇️ ${Object.keys(remote || {}).length} figurinha(s) baixadas`, 'emerald');
-    } catch (e) {
-      sfx.err();
-      pushToast?.(`Erro ao baixar: ${e.message}`, 'rose');
-    } finally { setBusy(null); }
-  }, [user, onSubstituirColecao, pushToast]);
 
   const handleLogout = useCallback(async () => {
     await signOut();
@@ -192,12 +148,18 @@ export default function SideMenu({
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-bold text-stone-100 truncate">{nome}</div>
                       <div className="text-[10px] text-stone-500 truncate flex items-center gap-1">
-                        <Cloud className="w-3 h-3 text-sky-400" />
-                        Nuvem:{' '}
-                        {busy === 'check'
-                          ? <Loader2 className="w-3 h-3 inline animate-spin" />
-                          : <strong className="text-sky-300">{remoteN ?? '?'}</strong>}
-                        {' '}/ Local: <strong className="text-stone-100">{Object.keys(colecao || {}).length}</strong>
+                        {syncStatus === 'syncing' && (
+                          <><Loader2 className="w-3 h-3 text-sky-400 animate-spin" /> <span className="text-sky-300">Sincronizando…</span></>
+                        )}
+                        {syncStatus === 'idle' && (
+                          <><Check className="w-3 h-3 text-emerald-400" /> <span className="text-emerald-300">Sincronizado</span></>
+                        )}
+                        {syncStatus === 'error' && (
+                          <><CloudOff className="w-3 h-3 text-rose-400" /> <span className="text-rose-300">Erro de sync</span></>
+                        )}
+                        <span className="text-stone-600">•</span>
+                        <Cloud className="w-3 h-3 text-stone-500" />
+                        <strong className="text-stone-300">{Object.keys(colecao || {}).length}</strong>
                       </div>
                     </div>
                   </div>
@@ -227,23 +189,14 @@ export default function SideMenu({
                 )}
               </Section>
 
-              {enabled && user && (
+              {enabled && user && syncStatus === 'error' && (
                 <Section title="Nuvem">
                   <Item
-                    icon={busy === 'push' ? Loader2 : CloudUpload}
-                    label="Enviar para nuvem"
-                    hint="Substitui o que está na nuvem pelo local"
-                    tone="emerald"
-                    disabled={busy !== null}
-                    onClick={handlePush}
-                  />
-                  <Item
-                    icon={busy === 'pull' ? Loader2 : CloudDownload}
-                    label="Baixar da nuvem"
-                    hint="Substitui o local pelo que está na nuvem"
-                    tone="sky"
-                    disabled={busy !== null}
-                    onClick={handlePull}
+                    icon={RefreshCw}
+                    label="Tentar sincronizar de novo"
+                    hint="A última sincronização falhou"
+                    tone="rose"
+                    onClick={() => { sfxState.unlock(); sfx.tick && sfx.tick(); onSincronizar?.(); }}
                   />
                 </Section>
               )}
@@ -263,6 +216,37 @@ export default function SideMenu({
                 />
               </Section>
 
+              {!user && (
+                <Section title="Conta">
+                  <Item
+                    icon={busy === 'google' ? Loader2 : LogIn}
+                    label="Entrar com Google"
+                    hint="Login rápido com sua conta Google"
+                    tone="sky"
+                    disabled={loading || busy === 'google'}
+                    onClick={async () => {
+                      sfxState.unlock();
+                      sfx.swoosh && sfx.swoosh();
+                      if (!enabled) {
+                        pushToast?.('Configure o Supabase no .env.local para usar o login', 'amber');
+                        return;
+                      }
+                      setBusy('google');
+                      try { await signInWithGoogle(); } catch (e) {
+                        pushToast?.(`Erro no login: ${e?.message}`, 'rose');
+                      } finally { setBusy(null); }
+                    }}
+                  />
+                  <Item
+                    icon={LogIn}
+                    label="Entrar com e-mail"
+                    hint="Link mágico sem senha"
+                    tone="amber"
+                    disabled={loading}
+                    onClick={() => { sfxState.unlock(); sfx.swoosh && sfx.swoosh(); onLogin?.(); setOpen(false); }}
+                  />
+                </Section>
+              )}
               {enabled && user && (
                 <Section title="Conta">
                   <Item icon={LogOut} label="Sair da conta" tone="rose" onClick={handleLogout} />

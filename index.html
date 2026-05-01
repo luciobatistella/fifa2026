@@ -3,9 +3,25 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏆</text></svg>" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#050505" />
-    <title>Álbum Copa 2026 — Meu Controlador</title>
+    <title>Álbum FIFA — albumfifa.com.br</title>
+    <script>
+      // Bloqueia zoom (desktop e mobile): Ctrl/Cmd + roda do mouse, Ctrl/Cmd + +/-/0, gestos de pinça e duplo-toque.
+      window.addEventListener('wheel', (e) => { if (e.ctrlKey || e.metaKey) e.preventDefault(); }, { passive: false });
+      window.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && ['+', '-', '=', '0'].includes(e.key)) e.preventDefault();
+      });
+      ['gesturestart', 'gesturechange', 'gestureend'].forEach((ev) =>
+        window.addEventListener(ev, (e) => e.preventDefault(), { passive: false })
+      );
+      let lastTouch = 0;
+      document.addEventListener('touchend', (e) => {
+        const now = Date.now();
+        if (now - lastTouch <= 300) e.preventDefault();
+        lastTouch = now;
+      }, { passive: false });
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Camera, Zap, ZapOff, Loader2, Check, Sparkles, Bug } from 'lucide-react';
+import { X, Camera, Zap, ZapOff, Loader2, Check, Sparkles, Bug, Focus } from 'lucide-react';
 import { recognize, getOCRWorker, disposeOCR, VALID_PREFIXES, PSM } from '../lib/ocr.js';
 import { normalizeId } from '../data/album.js';
 import { rotuloFigurinha } from '../lib/figurinhas.js';
@@ -40,7 +40,7 @@ function extractIds(text, debug) {
   return [...ids];
 }
 
-export default function Scanner({ aberto, onFechar, onDetectar }) {
+export default function Scanner({ aberto, onFechar, onDetectar, hideBottom = false }) {
   const videoRef   = useRef(null);
   const canvasRef  = useRef(null);
   const streamRef  = useRef(null);
@@ -49,6 +49,8 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
   const lastIdsRef = useRef(new Map());
   const busyRef    = useRef(false);
 
+  const frozenRef  = useRef(false); // quando true, pausa o loop para captura manual
+
   const [status, setStatus]     = useState('idle');
   const [erro, setErro]         = useState('');
   const [torchOn, setTorchOn]   = useState(false);
@@ -56,6 +58,7 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
   const [historico, setHistorico] = useState([]);
   const [showDebug, setShowDebug] = useState(false);
   const [debug, setDebug] = useState({ frames: 0, lastText: '', matches: [], lastFrameMs: 0, preview: null });
+  const [frozen, setFrozen]     = useState(false); // indicador visual de captura
 
   const COOLDOWN_MS = 1500;
   const FRAME_MS    = 320;
@@ -88,6 +91,20 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
       const caps = track.getCapabilities?.() || {};
       setTorchOk(!!caps.torch);
 
+      // Tenta foco contínuo logo no início
+      try {
+        const focusConstraints = { advanced: [{ focusMode: 'continuous' }] };
+        if (caps.focusMode?.includes('continuous')) {
+          await track.applyConstraints(focusConstraints);
+        }
+        // Se suportar focusDistance, tenta forçar macro (~10 cm)
+        if (caps.focusDistance) {
+          const minDist = caps.focusDistance.min ?? 0;
+          const macroDist = Math.max(minDist, Math.min((caps.focusDistance.min ?? 0) + 0.05, caps.focusDistance.max ?? 1));
+          await track.applyConstraints({ advanced: [{ focusMode: 'manual', focusDistance: macroDist }] });
+        }
+      } catch (_) {}
+
       const v = videoRef.current;
       if (v) {
         v.srcObject = stream;
@@ -114,6 +131,7 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
     }
     trackRef.current = null;
     busyRef.current = false;
+    frozenRef.current = false;
   }, []);
 
   const tocarParaFocar = useCallback(async () => {
@@ -121,26 +139,22 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
     if (!t) return;
     try {
       const caps = t.getCapabilities?.() || {};
-      if (caps.focusMode?.includes('continuous')) {
-        await t.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
-      } else if (caps.focusMode?.includes('single-shot')) {
+      // Primeiro tenta single-shot para forçar refoco imediato
+      if (caps.focusMode?.includes('single-shot')) {
         await t.applyConstraints({ advanced: [{ focusMode: 'single-shot' }] });
+        // Volta para contínuo depois de 800ms
+        setTimeout(async () => {
+          try {
+            if (caps.focusMode?.includes('continuous')) {
+              await t.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+            }
+          } catch (_) {}
+        }, 800);
+      } else if (caps.focusMode?.includes('continuous')) {
+        await t.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
       }
       sfx.tick();
     } catch (_) {}
-  }, []);
-
-  const iniciarLoop = useCallback(() => {
-    const tick = async () => {
-      if (!streamRef.current) return;
-      if (!busyRef.current) {
-        busyRef.current = true;
-        try { await processarFrame(); } catch (e) { console.warn('[scanner] frame err', e); }
-        busyRef.current = false;
-      }
-      loopRef.current = setTimeout(tick, FRAME_MS);
-    };
-    loopRef.current = setTimeout(tick, 600);
   }, []);
 
   const processarFrame = useCallback(async () => {
@@ -158,9 +172,9 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
     const sx = Math.floor(vw * CROP.xc - cw / 2);
     const sy = Math.floor(vh * CROP.yc - ch / 2);
 
-    // Alvo: ~120px de altura — letras grandes ajudam o Tesseract.
+    // Alvo: ~140px de altura — letras grandes ajudam o Tesseract.
     const targetH = 140;
-    const scale   = Math.max(1, targetH / ch);
+    const scale   = Math.max(2, targetH / ch);
     const dw = Math.floor(cw * scale);
     const dh = Math.floor(ch * scale);
 
@@ -174,18 +188,43 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
     // Pré-processamento: tons de cinza + Otsu + auto-invert se fundo for escuro.
     const img = ctx.getImageData(0, 0, dw, dh);
     const d = img.data;
-    const hist = new Array(256).fill(0);
+    const total = d.length / 4;
+
+    // Passo 1: converter para tons de cinza
+    const gray = new Uint8Array(total);
     let mean = 0;
-    for (let i = 0; i < d.length; i += 4) {
-      const g = (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114) | 0;
-      hist[g]++;
+    for (let i = 0; i < total; i++) {
+      const g = (d[i * 4] * 0.299 + d[i * 4 + 1] * 0.587 + d[i * 4 + 2] * 0.114) | 0;
+      gray[i] = g;
       mean += g;
     }
-    const total = d.length / 4;
-    mean /= total;
+    mean = (mean / total) | 0;
+
+    // Passo 2: sharpening simples (unsharp mask leve) para compensar borrão
+    const sharp = new Uint8Array(total);
+    for (let y = 0; y < dh; y++) {
+      for (let x = 0; x < dw; x++) {
+        const idx = y * dw + x;
+        // kernel laplaciano 3x3 com força moderada
+        let lap = 0, cnt = 0;
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            const ny = y + dy, nx = x + dx;
+            if (ny >= 0 && ny < dh && nx >= 0 && nx < dw) { lap += gray[ny * dw + nx]; cnt++; }
+          }
+        }
+        const blurred = (lap / cnt) | 0;
+        const s = Math.min(255, Math.max(0, gray[idx] + (gray[idx] - blurred) * 1.5)) | 0;
+        sharp[idx] = s;
+      }
+    }
+
+    // Passo 3: Otsu threshold no canal sharpened
+    const hist = new Array(256).fill(0);
+    for (let i = 0; i < total; i++) hist[sharp[i]]++;
     let sum = 0;
     for (let t = 0; t < 256; t++) sum += t * hist[t];
-    let sumB = 0, wB = 0, max = 0, threshold = 127;
+    let sumB = 0, wB = 0, maxVar = 0, threshold = 127;
     for (let t = 0; t < 256; t++) {
       wB += hist[t];
       if (wB === 0) continue;
@@ -195,18 +234,35 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
       const mB = sumB / wB;
       const mF = (sum - sumB) / wF;
       const between = wB * wF * (mB - mF) * (mB - mF);
-      if (between > max) { max = between; threshold = t; }
+      if (between > maxVar) { maxVar = between; threshold = t; }
     }
-    // A pílula no verso é cinza escuro com texto claro → maioria dos pixels
-    // é escura. Invertemos para entregar texto preto sobre fundo branco.
+    // A pílula no verso é cinza escuro com texto claro → invertemos
     const invert = mean < 128;
-    for (let i = 0; i < d.length; i += 4) {
-      const g = (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114) | 0;
-      let v2 = g < threshold ? 0 : 255;
+    for (let i = 0; i < total; i++) {
+      let v2 = sharp[i] < threshold ? 0 : 255;
       if (invert) v2 = 255 - v2;
-      d[i] = d[i + 1] = d[i + 2] = v2;
+      d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = v2;
     }
     ctx.putImageData(img, 0, 0);
+
+    // Passo 4: dilatar levemente para fechar buracos nas letras (simples)
+    // Só quando a imagem parece ter problemas (baixo contraste)
+    if (maxVar < 500000) {
+      const imgD = ctx.getImageData(0, 0, dw, dh);
+      const dd = imgD.data;
+      const tmp = new Uint8ClampedArray(dd);
+      for (let y = 1; y < dh - 1; y++) {
+        for (let x = 1; x < dw - 1; x++) {
+          const i = (y * dw + x) * 4;
+          if (dd[i] === 0) { // pixel preto → dilata
+            tmp[((y-1)*dw+x)*4] = tmp[((y+1)*dw+x)*4] =
+            tmp[(y*dw+x-1)*4] = tmp[(y*dw+x+1)*4] = 0;
+          }
+        }
+      }
+      for (let i = 0; i < tmp.length; i += 4) dd[i] = dd[i+1] = dd[i+2] = tmp[i];
+      ctx.putImageData(imgD, 0, 0);
+    }
 
     // Snapshot da imagem processada para o overlay de debug.
     let preview = null;
@@ -258,6 +314,35 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
     });
   }, [onDetectar]);
 
+  const iniciarLoop = useCallback(() => {
+    const tick = async () => {
+      if (!streamRef.current) return;
+      if (!frozenRef.current && !busyRef.current) {
+        busyRef.current = true;
+        try { await processarFrame(); } catch (e) { console.warn('[scanner] frame err', e); }
+        busyRef.current = false;
+      }
+      loopRef.current = setTimeout(tick, FRAME_MS);
+    };
+    loopRef.current = setTimeout(tick, 600);
+  }, [processarFrame]);
+
+  /* Captura manual: congela o frame atual e força OCR */
+  const capturarAgora = useCallback(async () => {
+    if (!streamRef.current || status !== 'scanning') return;
+    frozenRef.current = true;
+    setFrozen(true);
+    sfx.tick();
+    try {
+      await processarFrame();
+    } catch (e) {
+      console.warn('[scanner] capture err', e);
+    }
+    await new Promise((r) => setTimeout(r, 1200));
+    frozenRef.current = false;
+    setFrozen(false);
+  }, [status, processarFrame]);
+
   const toggleTorch = useCallback(async () => {
     const t = trackRef.current;
     if (!t || !torchOk) return;
@@ -276,6 +361,8 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
     sfxState.unlock();
     setHistorico([]);
     setDebug({ frames: 0, lastText: '', matches: [], lastFrameMs: 0, preview: null });
+    setFrozen(false);
+    frozenRef.current = false;
     lastIdsRef.current.clear();
     iniciarCamera();
     return () => { pararCamera(); };
@@ -427,7 +514,7 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
             </div>
           )}
 
-          <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
+          {!hideBottom && <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
             <div className="max-w-md mx-auto space-y-2">
               <div className="flex items-center justify-between px-1">
                 <div className="text-[10px] uppercase tracking-[0.25em] text-stone-400 font-bold">
@@ -439,7 +526,7 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
                   </div>
                 )}
               </div>
-              <div className="space-y-1.5 max-h-[34vh] overflow-y-auto">
+              <div className="space-y-1.5 max-h-[28vh] overflow-y-auto">
                 <AnimatePresence initial={false}>
                   {historico.map((h) => (
                     <motion.div
@@ -463,14 +550,36 @@ export default function Scanner({ aberto, onFechar, onDetectar }) {
                   ))}
                 </AnimatePresence>
               </div>
-              {historico.length === 0 && status === 'scanning' && (
-                <div className="text-center text-[11px] text-stone-400 px-4">
-                  Vire a figurinha e encaixe a etiqueta <span className="font-mono text-amber-400">XXX&nbsp;9</span> dentro da pílula.
-                  Toque na tela pra focar.
+
+              {/* Botão de captura manual + dica */}
+              {status === 'scanning' && (
+                <div className="flex items-center gap-3 pt-1">
+                  <div className="flex-1 text-[11px] text-stone-400">
+                    {historico.length === 0
+                      ? <>Vire a figurinha e encaixe a pílula <span className="font-mono text-amber-400">XXX&nbsp;9</span> na mira. <span className="text-stone-300">Toque na tela pra focar.</span></>
+                      : <span className="text-stone-300">Segure firme e toque pra capturar.</span>
+                    }
+                  </div>
+                  <motion.button
+                    onClick={capturarAgora}
+                    whileTap={{ scale: 0.9 }}
+                    animate={frozen ? { scale: [1, 1.12, 1], backgroundColor: ['#fbbf24', '#fbbf24'] } : {}}
+                    className={`flex-shrink-0 w-16 h-16 rounded-full flex items-center justify-center shadow-lg ring-4 transition-colors ${
+                      frozen
+                        ? 'bg-amber-400 ring-amber-300 text-black'
+                        : 'bg-white/10 ring-white/30 text-white backdrop-blur'
+                    }`}
+                    title="Capturar agora"
+                  >
+                    {frozen
+                      ? <Check className="w-7 h-7" />
+                      : <Camera className="w-7 h-7" />
+                    }
+                  </motion.button>
                 </div>
               )}
             </div>
-          </div>
+          </div>}
         </motion.div>
       )}
     </AnimatePresence>

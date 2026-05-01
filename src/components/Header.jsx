@@ -41,7 +41,7 @@ function Avatar({ user, size = 36 }) {
   );
 }
 
-export default function Header({ stats, onPacote, onQuick, onConfig, onScan, onLogin, colecao, onSubstituirColecao, pushToast }) {
+export default function Header({ stats, onPacote, onQuick, onConfig, onScan, onLogin, colecao, syncStatus, onSincronizar, pushToast }) {
   const { user, enabled } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -83,7 +83,7 @@ export default function Header({ stats, onPacote, onQuick, onConfig, onScan, onL
               </span>
             </div>
             <h1 className="font-display text-5xl sm:text-6xl leading-[0.85] text-stone-100">
-              MEU <span className="text-holo">ÁLBUM</span>
+              ÁLBUM <span className="text-holo">FIFA</span>
             </h1>
             <p className="text-xs text-stone-400 mt-2 font-mono">
               <AnimatedNumber value={stats.distintas} className="text-stone-200 font-bold" /> / {TOTAL_FIGURINHAS} figurinhas •{' '}
@@ -160,7 +160,8 @@ export default function Header({ stats, onPacote, onQuick, onConfig, onScan, onL
         onScan={onScan}
         onLogin={onLogin}
         colecao={colecao}
-        onSubstituirColecao={onSubstituirColecao}
+        syncStatus={syncStatus}
+        onSincronizar={onSincronizar}
         pushToast={pushToast}
       />
     </header>
