@@ -42,14 +42,19 @@ export function useAuth() {
     if (!SUPABASE_ENABLED) throw new Error('Supabase não configurado');
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.origin },
+      options: {
+        redirectTo: window.location.origin,
+        queryParams: {
+          prompt: 'select_account',
+        },
+      },
     });
     if (error) throw error;
   }, []);
 
   const signOut = useCallback(async () => {
     if (!SUPABASE_ENABLED) return;
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: 'global' });
   }, []);
 
   return {
