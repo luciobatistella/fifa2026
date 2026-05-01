@@ -1,17 +1,56 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Trophy, Plus, Package, Settings, ScanLine } from 'lucide-react';
-import IconBtn from './ui/IconBtn.jsx';
-import SFXToggle from './ui/SFXToggle.jsx';
+import { Trophy, Menu } from 'lucide-react';
 import AnimatedNumber from './effects/AnimatedNumber.jsx';
-import UserMenu from './UserMenu.jsx';
+import SideMenu from './SideMenu.jsx';
+import { useAuth } from '../hooks/useAuth.js';
 import { sfx, sfxState } from '../lib/sfx.js';
 import { TOTAL_FIGURINHAS } from '../data/selecoes.js';
 import { spring } from '../lib/anims.js';
 
-const wrap = (fn, sound = 'tick') => () => { sfxState.unlock(); sfx[sound] && sfx[sound](); fn && fn(); };
+function Avatar({ user, size = 36 }) {
+  const meta = user?.user_metadata || {};
+  const url  = meta.avatar_url || meta.picture;
+  const nome = meta.full_name || meta.name || user?.email?.split('@')[0] || '?';
+  const initials = nome
+    .split(/\s+/).filter(Boolean).slice(0, 2)
+    .map((p) => p[0]).join('').toUpperCase() || '?';
+  const [erro, setErro] = useState(false);
+  const px = `${size}px`;
+
+  if (url && !erro) {
+    return (
+      <img
+        src={url}
+        alt={nome}
+        referrerPolicy="no-referrer"
+        onError={() => setErro(true)}
+        className="rounded-full object-cover ring-1 ring-amber-400/50"
+        style={{ width: px, height: px }}
+      />
+    );
+  }
+  return (
+    <div
+      className="rounded-full bg-gradient-to-br from-amber-400 to-amber-600 text-stone-950 font-black flex items-center justify-center ring-1 ring-amber-400/50"
+      style={{ width: px, height: px, fontSize: Math.round(size * 0.38) }}
+      aria-label={nome}
+    >
+      {initials}
+    </div>
+  );
+}
 
 export default function Header({ stats, onPacote, onQuick, onConfig, onScan, onLogin, colecao, onSubstituirColecao, pushToast }) {
+  const { user } = useAuth();
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const abrirMenu = () => {
+    sfxState.unlock();
+    sfx.tick && sfx.tick();
+    setMenuOpen(true);
+  };
+
   return (
     <header className="relative border-b border-amber-500/20 overflow-hidden">
       {/* halos */}
@@ -50,21 +89,22 @@ export default function Header({ stats, onPacote, onQuick, onConfig, onScan, onL
 
           <motion.div
             initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={spring}
-            className="flex items-center gap-1.5 shrink-0"
+            className="shrink-0"
           >
-            <SFXToggle />
-            {onScan && (
-              <IconBtn title="Escanear (S)"     onClick={wrap(onScan, 'beep')}><ScanLine className="w-4 h-4" /></IconBtn>
-            )}
-            <IconBtn title="Adicionar (A)"     onClick={wrap(onQuick, 'swoosh')}><Plus className="w-4 h-4" /></IconBtn>
-            <IconBtn title="Abrir pacote (P)"  onClick={wrap(onPacote, 'pack')}><Package className="w-4 h-4" /></IconBtn>
-            <IconBtn title="Configurações"     onClick={wrap(onConfig, 'tick')}><Settings className="w-4 h-4" /></IconBtn>
-            <UserMenu
-              colecao={colecao}
-              onAbrirLogin={onLogin}
-              onSubstituirColecao={onSubstituirColecao}
-              pushToast={pushToast}
-            />
+            <motion.button
+              whileHover={{ scale: 1.06 }}
+              whileTap={{ scale: 0.94 }}
+              onClick={abrirMenu}
+              title="Abrir menu"
+              aria-label="Abrir menu"
+              className="relative flex items-center gap-2 pl-1.5 pr-3 h-11 rounded-full bg-stone-900/80 ring-1 ring-amber-400/30 hover:ring-amber-400/60 text-amber-300 hover:text-amber-200 transition shadow-[0_0_20px_-8px_rgba(251,191,36,0.6)]"
+            >
+              {user
+                ? <Avatar user={user} size={32} />
+                : <span className="w-8 h-8 rounded-full bg-stone-800 flex items-center justify-center"><Menu className="w-4 h-4" /></span>
+              }
+              <span className="text-xs font-bold uppercase tracking-[0.2em] hidden sm:block">Menu</span>
+            </motion.button>
           </motion.div>
         </div>
 
@@ -91,6 +131,19 @@ export default function Header({ stats, onPacote, onQuick, onConfig, onScan, onL
           </div>
         </motion.div>
       </div>
+
+      <SideMenu
+        open={menuOpen}
+        setOpen={setMenuOpen}
+        onPacote={onPacote}
+        onQuick={onQuick}
+        onConfig={onConfig}
+        onScan={onScan}
+        onLogin={onLogin}
+        colecao={colecao}
+        onSubstituirColecao={onSubstituirColecao}
+        pushToast={pushToast}
+      />
     </header>
   );
 }

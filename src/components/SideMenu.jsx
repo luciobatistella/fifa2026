@@ -1,0 +1,281 @@
+import React, { useEffect, useState, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  X, Plus, Package, Settings, ScanLine, Volume2, VolumeX,
+  LogIn, LogOut, CloudUpload, CloudDownload, Cloud, Loader2,
+} from 'lucide-react';
+import { useAuth } from '../hooks/useAuth.js';
+import { pullCollection, pushCollection, remoteCount } from '../lib/sync.js';
+import { sfx, sfxState } from '../lib/sfx.js';
+
+const wrap = (fn, sound = 'tick', closeAfter, setOpen) => () => {
+  sfxState.unlock();
+  sfx[sound] && sfx[sound]();
+  fn && fn();
+  if (closeAfter) setOpen(false);
+};
+
+function Item({ icon: Icon, label, hint, onClick, disabled, tone = 'stone' }) {
+  const tones = {
+    stone:   'hover:bg-stone-900 text-stone-100',
+    amber:   'hover:bg-amber-500/10 text-amber-200',
+    emerald: 'hover:bg-emerald-500/10 text-emerald-200',
+    sky:     'hover:bg-sky-500/10 text-sky-200',
+    rose:    'hover:bg-rose-500/10 text-rose-200',
+  };
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition disabled:opacity-50 disabled:cursor-not-allowed ${tones[tone] || tones.stone}`}
+    >
+      <Icon className="w-4 h-4 shrink-0" />
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-bold leading-tight">{label}</div>
+        {hint && <div className="text-[10px] text-stone-500 truncate">{hint}</div>}
+      </div>
+    </button>
+  );
+}
+
+function Section({ title, children }) {
+  return (
+    <div className="px-2 py-2">
+      {title && (
+        <div className="px-3 pb-1.5 text-[10px] uppercase tracking-[0.25em] font-bold text-stone-500">
+          {title}
+        </div>
+      )}
+      <div className="space-y-0.5">{children}</div>
+    </div>
+  );
+}
+
+export default function SideMenu({
+  open, setOpen,
+  onPacote, onQuick, onConfig, onScan, onLogin,
+  colecao, onSubstituirColecao, pushToast,
+}) {
+  const { enabled, user, signOut, loading } = useAuth();
+  const [muted, setMuted] = useState(() => sfxState.isMuted());
+  const [busy, setBusy] = useState(null);
+  const [remoteN, setRemoteN] = useState(null);
+
+  // ESC fecha
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, setOpen]);
+
+  // Trava scroll do body
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [open]);
+
+  // Conta na nuvem ao logar
+  useEffect(() => {
+    if (!user) { setRemoteN(null); return; }
+    let alive = true;
+    setBusy('check');
+    remoteCount(user.id)
+      .then((n) => { if (alive) setRemoteN(n); })
+      .catch(() => {})
+      .finally(() => { if (alive) setBusy(null); });
+    return () => { alive = false; };
+  }, [user]);
+
+  const toggleSfx = useCallback(() => {
+    sfxState.unlock();
+    const m = sfxState.toggle();
+    setMuted(m);
+    if (!m) sfx.tick && sfx.tick();
+  }, []);
+
+  const handlePush = useCallback(async () => {
+    if (!user) return;
+    setBusy('push');
+    try {
+      await pushCollection(user.id, colecao);
+      const n = await remoteCount(user.id);
+      setRemoteN(n);
+      sfx.ding();
+      pushToast?.(`☁️ ${n} figurinha(s) salva(s) na nuvem`, 'emerald');
+    } catch (e) {
+      sfx.err();
+      pushToast?.(`Erro ao enviar: ${e.message}`, 'rose');
+    } finally { setBusy(null); }
+  }, [user, colecao, pushToast]);
+
+  const handlePull = useCallback(async () => {
+    if (!user) return;
+    if (!window.confirm('Substituir sua coleção local pelos dados da nuvem? A coleção local atual será perdida.')) return;
+    setBusy('pull');
+    try {
+      const remote = await pullCollection(user.id);
+      onSubstituirColecao?.(remote || {});
+      sfx.ding();
+      pushToast?.(`⬇️ ${Object.keys(remote || {}).length} figurinha(s) baixadas`, 'emerald');
+    } catch (e) {
+      sfx.err();
+      pushToast?.(`Erro ao baixar: ${e.message}`, 'rose');
+    } finally { setBusy(null); }
+  }, [user, onSubstituirColecao, pushToast]);
+
+  const handleLogout = useCallback(async () => {
+    await signOut();
+    setOpen(false);
+    sfx.close();
+    pushToast?.('Você saiu da conta', 'amber');
+  }, [signOut, setOpen, pushToast]);
+
+  const meta = user?.user_metadata || {};
+  const nome = meta.full_name || meta.name || user?.email?.split('@')[0] || 'Você';
+  const avatar = meta.avatar_url || meta.picture;
+  const initials = nome
+    .split(/\s+/).filter(Boolean).slice(0, 2)
+    .map((p) => p[0]).join('').toUpperCase() || '?';
+  const [avatarErr, setAvatarErr] = useState(false);
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <>
+          {/* backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={() => setOpen(false)}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+          />
+
+          {/* drawer */}
+          <motion.aside
+            initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
+            transition={{ type: 'spring', stiffness: 320, damping: 34 }}
+            className="fixed top-0 right-0 bottom-0 w-[88%] max-w-sm bg-stone-950 border-l border-amber-500/20 shadow-[0_0_60px_rgba(0,0,0,0.7)] z-50 flex flex-col"
+          >
+            {/* header */}
+            <div className="relative px-4 py-4 border-b border-stone-800/80 flex items-center justify-between bg-gradient-to-b from-amber-500/10 to-transparent">
+              <div className="text-[10px] uppercase tracking-[0.3em] font-bold text-amber-400">Menu</div>
+              <button
+                onClick={() => { sfxState.unlock(); sfx.close && sfx.close(); setOpen(false); }}
+                className="w-8 h-8 rounded-lg bg-stone-900/80 ring-1 ring-stone-800 hover:ring-amber-400/40 flex items-center justify-center text-stone-300 hover:text-amber-300 transition"
+                title="Fechar (Esc)"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* conta */}
+            {enabled && (
+              <div className="px-3 py-3 border-b border-stone-800/80">
+                {user ? (
+                  <div className="flex items-center gap-3">
+                    {avatar && !avatarErr ? (
+                      <img
+                        src={avatar}
+                        alt={nome}
+                        referrerPolicy="no-referrer"
+                        onError={() => setAvatarErr(true)}
+                        className="w-10 h-10 rounded-full object-cover ring-1 ring-amber-400/40"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 text-stone-950 text-sm font-black flex items-center justify-center ring-1 ring-amber-400/40">
+                        {initials}
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-bold text-stone-100 truncate">{nome}</div>
+                      <div className="text-[10px] text-stone-500 truncate flex items-center gap-1">
+                        <Cloud className="w-3 h-3 text-sky-400" />
+                        Nuvem:{' '}
+                        {busy === 'check'
+                          ? <Loader2 className="w-3 h-3 inline animate-spin" />
+                          : <strong className="text-sky-300">{remoteN ?? '?'}</strong>}
+                        {' '}/ Local: <strong className="text-stone-100">{Object.keys(colecao || {}).length}</strong>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => { sfxState.unlock(); sfx.swoosh && sfx.swoosh(); onLogin?.(); setOpen(false); }}
+                    disabled={loading}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-amber-400/15 ring-1 ring-amber-400/40 text-amber-300 hover:bg-amber-400/25 transition text-sm font-bold"
+                  >
+                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogIn className="w-4 h-4" />}
+                    Entrar na conta
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* corpo scroll */}
+            <div className="flex-1 overflow-y-auto py-2">
+              <Section title="Ações">
+                <Item icon={Plus}    label="Adicionar"    hint="Atalho: A" tone="amber"
+                  onClick={wrap(onQuick,  'swoosh', true, setOpen)} />
+                <Item icon={Package} label="Abrir pacote" hint="Atalho: P" tone="amber"
+                  onClick={wrap(onPacote, 'pack',   true, setOpen)} />
+                {onScan && (
+                  <Item icon={ScanLine} label="Escanear figurinha" hint="Atalho: S" tone="amber"
+                    onClick={wrap(onScan, 'beep', true, setOpen)} />
+                )}
+              </Section>
+
+              {enabled && user && (
+                <Section title="Nuvem">
+                  <Item
+                    icon={busy === 'push' ? Loader2 : CloudUpload}
+                    label="Enviar para nuvem"
+                    hint="Substitui o que está na nuvem pelo local"
+                    tone="emerald"
+                    disabled={busy !== null}
+                    onClick={handlePush}
+                  />
+                  <Item
+                    icon={busy === 'pull' ? Loader2 : CloudDownload}
+                    label="Baixar da nuvem"
+                    hint="Substitui o local pelo que está na nuvem"
+                    tone="sky"
+                    disabled={busy !== null}
+                    onClick={handlePull}
+                  />
+                </Section>
+              )}
+
+              <Section title="Preferências">
+                <Item
+                  icon={muted ? VolumeX : Volume2}
+                  label={muted ? 'Som desligado' : 'Som ligado'}
+                  hint="Toque para alternar"
+                  onClick={toggleSfx}
+                />
+                <Item
+                  icon={Settings}
+                  label="Configurações"
+                  hint="Preferências do álbum"
+                  onClick={wrap(onConfig, 'tick', true, setOpen)}
+                />
+              </Section>
+
+              {enabled && user && (
+                <Section title="Conta">
+                  <Item icon={LogOut} label="Sair da conta" tone="rose" onClick={handleLogout} />
+                </Section>
+              )}
+            </div>
+
+            <div className="px-4 py-3 border-t border-stone-800/80 text-[10px] text-stone-600 font-mono text-center">
+              FIFA World Cup 2026 • Panini
+            </div>
+          </motion.aside>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
